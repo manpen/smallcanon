@@ -4,6 +4,7 @@
 #include <bit>
 #include <cassert>
 #include <concepts>
+#include <cstdint>
 #include <memory>
 #include <span>
 
@@ -105,7 +106,7 @@ namespace smallcanon {
 
             explicit constexpr HeapStorage(node_t row_capacity) :
                 row_capacity_(std::max(CAPACITY_OF_SMALLEST_GRAPH, std::bit_ceil(row_capacity))),
-                buffer_(new word_t[row_capacity_ * row_capacity_ / BITS_PER_WORD]) {
+                buffer_(std::make_unique<word_t[]>(row_capacity_ * row_capacity_ / BITS_PER_WORD)) {
                 assert(row_capacity_ > 0);
             }
 
@@ -185,4 +186,5 @@ namespace smallcanon {
     using AdjMatrix32 = AdjMatrix<details::FixedStorage32>;
     using AdjMatrix64 = AdjMatrix<details::FixedStorage64>;
     using AdjMatrix128 = AdjMatrix<details::FixedStorage128>;
+    using AdjMatrixHeap = AdjMatrix<details::HeapStorage>;
 } // namespace smallcanon
