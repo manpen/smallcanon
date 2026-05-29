@@ -29,15 +29,6 @@ target_include_directories(
         $<INSTALL_INTERFACE:include>
 )
 
-target_sources(
-        smallcanon
-        INTERFACE
-        FILE_SET HEADERS
-        BASE_DIRS include
-        FILES
-        include/smallcanon/adj_matrix.hpp
-)
-
 target_compile_options(
         smallcanon
         INTERFACE

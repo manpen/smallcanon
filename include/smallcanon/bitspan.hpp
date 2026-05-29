@@ -4,11 +4,23 @@
 #include <cassert>
 #include <concepts>
 #include <cstddef>
+#include <generator>
+#include <ranges>
 #include <span>
 #include <type_traits>
 #include <utility>
 
 namespace smallcanon {
+    // iterates over all bits that are set in v
+    template<std::unsigned_integral T>
+    std::generator<int> iterate_set_bits(T v) noexcept {
+        while (v) {
+            const auto pos = std::countr_zero(v);
+            v &= v - 1; // remove least significant one
+            co_yield pos;
+        }
+    }
+
     template<typename T>
         requires std::unsigned_integral<std::remove_cv_t<T>>
     class BitSpan {
@@ -53,6 +65,15 @@ namespace smallcanon {
         /// Returns whether the span contains no set bits.
         [[nodiscard]] constexpr bool all_unset() const noexcept {
             return std::all_of(begin_, end_, [](auto& x) { return x == 0; });
+        }
+
+        /// Returns a generator with the positions of all set bits.
+        [[nodiscard]] std::generator<size_t> iterate_set_bits() const {
+            for (size_t word_index = 0; word_index < static_cast<size_t>(end_ - begin_); ++word_index) {
+                for (const auto bit: smallcanon::iterate_set_bits(begin_[word_index])) {
+                    co_yield (word_index * BITS_PER_WORD) + static_cast<size_t>(bit);
+                }
+            }
         }
 
         /// Assigns value v to bit i and returns whether it was previously set.
@@ -102,4 +123,6 @@ namespace smallcanon {
             return {offset, mask};
         }
     };
+
+
 } // namespace smallcanon

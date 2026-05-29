@@ -131,7 +131,7 @@ TEST(HeapStorageTests, RoundsRowCapacityUpToAtLeastSmallestGraphCapacity) {
             {65, 128},
     }};
 
-    for (const auto& [requested_capacity, expected_capacity] : cases) {
+    for (const auto& [requested_capacity, expected_capacity]: cases) {
         const Storage storage(requested_capacity);
 
         EXPECT_EQ(storage.row_capacity(), expected_capacity);

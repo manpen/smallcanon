@@ -4,7 +4,6 @@
 #include <bit>
 #include <cassert>
 #include <concepts>
-#include <cstdint>
 #include <memory>
 #include <span>
 
@@ -15,6 +14,8 @@ namespace smallcanon {
     using edgeid_t = uint32_t;
     static_assert(sizeof(edgeid_t) >= sizeof(node_t)); // technically, we want node_t to fit twice into edgeid; but that
                                                        // seems wasteful for small graphs
+
+    using edge_t = std::pair<edgeid_t, node_t>;
 
 
     /// AdjMatrix implements an adjacency matrix based on an external storage type.
@@ -54,20 +55,43 @@ namespace smallcanon {
             return storage.buffer();
         }
 
-        constexpr std::span<word_t> row(node_t i) noexcept {
-            return storage.row(i);
+        constexpr std::span<word_t> row(node_t u) noexcept {
+            assert(u < storage.row_capacity());
+            return storage.row(u);
         }
 
-        constexpr std::span<const word_t> row(node_t i) const noexcept {
-            return storage.row(i);
+        constexpr std::span<const word_t> row(node_t u) const noexcept {
+            assert(u < storage.row_capacity());
+            return storage.row(u);
+        }
+
+        [[nodiscard]] std::generator<edge_t> edges() const noexcept {
+            const auto n = storage.row_capacity();
+            for (node_t u = 0; u < n; ++u) {
+                for (node_t v: neighbors_of(u)) {
+                    if (v > u)
+                        break;
+                    co_yield {u, v};
+                }
+            }
         }
 
         [[nodiscard]] constexpr bool has_edge(node_t u, node_t v) const noexcept {
+            assert(u < storage.row_capacity());
             return BitSpan(storage.row(u)).get_bit(v);
         }
 
         [[nodiscard]] constexpr node_t count_degree(node_t u) const noexcept {
+            assert(u < storage.row_capacity());
             return static_cast<node_t>(BitSpan(storage.row(u)).count_ones());
+        }
+
+        [[nodiscard]] std::generator<node_t> neighbors_of(node_t u) const noexcept {
+            assert(u < storage.row_capacity());
+            const BitSpan bits(storage.row(u));
+            for (const auto v: bits.iterate_set_bits()) {
+                co_yield static_cast<node_t>(v);
+            }
         }
 
         constexpr bool add_edge(node_t u, node_t v) noexcept {
