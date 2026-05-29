@@ -14,6 +14,10 @@ function(add_smallcanon_test name)
             smallcanon::smallcanon
             GTest::gtest_main
     )
+    target_compile_definitions(smallcanon_test_${name}
+        PRIVATE
+            SMALLCANON_PROJECT_ROOT="${PROJECT_SOURCE_DIR}"
+    )
 
     gtest_discover_tests(smallcanon_test_${name})
 endfunction()
@@ -33,6 +37,10 @@ else()
             PRIVATE
             smallcanon::smallcanon
             GTest::gtest_main
+    )
+    target_compile_definitions(smallcanon_test
+        PRIVATE
+            SMALLCANON_PROJECT_ROOT="${PROJECT_SOURCE_DIR}"
     )
 
     gtest_discover_tests(smallcanon_test)

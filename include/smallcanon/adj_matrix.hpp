@@ -40,7 +40,7 @@ namespace smallcanon {
         }
 
         /// Creates an adjacency matrix from an existing storage object.
-        constexpr explicit AdjMatrix(storage_t&& s) : storage(s) {
+        constexpr explicit AdjMatrix(storage_t&& s) : storage(std::move(s)) {
             assert(storage.row_capacity() % storage_t::BITS_PER_WORD == 0);
         }
 
@@ -236,4 +236,7 @@ namespace smallcanon {
     using AdjMatrix64 = AdjMatrix<details::FixedStorage64>;
     using AdjMatrix128 = AdjMatrix<details::FixedStorage128>;
     using AdjMatrixHeap = AdjMatrix<details::HeapStorage>;
+
+    using AdjMatrixVariant =
+            std::variant<AdjMatrix8, AdjMatrix16, AdjMatrix32, AdjMatrix64, AdjMatrix128, AdjMatrixHeap>;
 } // namespace smallcanon

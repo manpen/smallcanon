@@ -10,6 +10,8 @@
 #include <string_view>
 #include <tuple>
 
+#include "adj_matrix.hpp"
+
 namespace smallcanon {
     using parsed_graph6_t = std::tuple<node_t, std::generator<edge_t>, std::string_view>;
 
@@ -84,6 +86,15 @@ namespace smallcanon {
                 }
             }
         }
+
+        template<typename M>
+        M build_fixed_adjmatrix(auto&& edges) {
+            M matrix;
+            for (auto [u, v]: edges) {
+                matrix.add_edge(u, v);
+            }
+            return matrix;
+        }
     } // namespace details
 
     inline std::optional<parsed_graph6_t> parse_graph6(std::string_view text) {
@@ -126,6 +137,39 @@ namespace smallcanon {
 
             auto [n, edges, remainder] = std::move(*parsed);
             co_yield {n, std::move(edges), details::trim_whitespace(remainder)};
+        }
+    }
+
+    inline std::generator<std::pair<std::string_view, AdjMatrixVariant>> read_graph_dataset(std::istream& input) {
+        for (auto [n, edge, name]: read_dataset(input)) {
+            if (n <= 8) {
+                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix8>(edge)}};
+                continue;
+            }
+            if (n <= 16) {
+                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix16>(edge)}};
+                continue;
+            }
+            if (n <= 32) {
+                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix32>(edge)}};
+                continue;
+            }
+            if (n <= 64) {
+                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix64>(edge)}};
+                continue;
+            }
+            if (n <= 128) {
+                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix128>(edge)}};
+                continue;
+            }
+
+            details::HeapStorage hs(n);
+            AdjMatrixHeap matrix(std::move(hs));
+            for (auto [u, v]: edge) {
+                matrix.add_edge(u, v);
+            }
+
+            co_yield {name, std::move(matrix)};
         }
     }
 } // namespace smallcanon

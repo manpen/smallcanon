@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <smallcanon/parser.hpp>
 
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -123,4 +125,49 @@ TEST(ParserTest, ReadDatasetSkipsInvalidLines) {
 
     ASSERT_EQ(names.size(), 1);
     EXPECT_EQ(names[0], "EmptyN1");
+}
+
+TEST(ParserTest, ReadGraphDataSet) {
+    const auto dataset_path = std::filesystem::path(SMALLCANON_PROJECT_ROOT) / "datasets" / "paths.g6";
+    ASSERT_TRUE(std::filesystem::exists(dataset_path));
+
+    std::ifstream curated(dataset_path);
+    ASSERT_TRUE(curated);
+
+    uint64_t num8 = 0;
+    uint64_t num16 = 0;
+    uint64_t num32 = 0;
+    uint64_t num64 = 0;
+    uint64_t num128 = 0;
+    uint64_t num_heap = 0;
+
+    for (auto [name, graph]: smallcanon::read_graph_dataset(curated)) {
+        std::visit(
+                [&](auto&& arg) {
+                    using T = std::decay_t<decltype(arg)>;
+                    if constexpr (std::is_same_v<T, smallcanon::AdjMatrix8>) {
+                        num8++;
+                    } else if constexpr (std::is_same_v<T, smallcanon::AdjMatrix16>) {
+                        num16++;
+                    } else if constexpr (std::is_same_v<T, smallcanon::AdjMatrix32>) {
+                        num32++;
+                    } else if constexpr (std::is_same_v<T, smallcanon::AdjMatrix64>) {
+                        num64++;
+                    } else if constexpr (std::is_same_v<T, smallcanon::AdjMatrix128>) {
+                        num128++;
+                    } else if constexpr (std::is_same_v<T, smallcanon::AdjMatrixHeap>) {
+                        num_heap++;
+                    } else {
+                        static_assert(false, "non-exhaustive visitor!");
+                    }
+                },
+                graph);
+    }
+
+    ASSERT_EQ(num8, 7);
+    ASSERT_EQ(num16, 8);
+    ASSERT_EQ(num32, 16);
+    ASSERT_EQ(num64, 32);
+    ASSERT_EQ(num128, 64);
+    ASSERT_EQ(num_heap, 199 - 128);
 }
