@@ -16,7 +16,7 @@ if(SMALLCANON_CLANG_TIDY)
 endif()
 
 add_library(smallcanon INTERFACE
-        include/smallcanon/bits.hpp)
+        include/smallcanon/bitspan.hpp)
 add_library(smallcanon::smallcanon ALIAS smallcanon)
 
 target_compile_features(smallcanon INTERFACE cxx_std_23)
