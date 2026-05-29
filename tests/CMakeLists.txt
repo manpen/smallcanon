@@ -1,5 +1,11 @@
 include(GoogleTest)
 
+SET(SMALL_CANON_TESTS
+        adj_matrix
+        adj_matrix_storage
+        bitspan
+)
+
 function(add_smallcanon_test name)
     add_executable(smallcanon_test_${name} ${name}.cpp)
     target_link_libraries(smallcanon_test_${name}
@@ -11,6 +17,22 @@ function(add_smallcanon_test name)
     gtest_discover_tests(smallcanon_test_${name})
 endfunction()
 
-add_smallcanon_test(adj_matrix)
-add_smallcanon_test(adj_matrix_storage)
-add_smallcanon_test(bitspan)
+if (INDIV_TESTS)
+    foreach(SRC IN LISTS SMALL_CANON_TESTS)
+        add_smallcanon_test(SRC)
+    endforeach ()
+else()
+    add_executable(smallcanon_test)
+    foreach(SRC IN LISTS SMALL_CANON_TESTS)
+        target_sources(smallcanon_test PRIVATE ${SRC}.cpp)
+    endforeach ()
+
+
+    target_link_libraries(smallcanon_test
+            PRIVATE
+            smallcanon::smallcanon
+            GTest::gtest_main
+    )
+
+    gtest_discover_tests(smallcanon_test)
+endif()
