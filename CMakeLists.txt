@@ -35,7 +35,6 @@ target_sources(
         BASE_DIRS include
         FILES
             include/smallcanon/adj_matrix.hpp
-            include/smallcanon/g6_parser.hpp
 )
 
 target_compile_options(

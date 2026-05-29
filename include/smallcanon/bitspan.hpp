@@ -4,19 +4,29 @@
 #include <cassert>
 #include <concepts>
 #include <cstddef>
+#include <span>
+#include <type_traits>
 #include <utility>
 
 namespace smallcanon {
-    template<std::unsigned_integral T>
+    template<typename T>
+        requires std::unsigned_integral<std::remove_cv_t<T>>
     class BitSpan {
+        using unsigned_t = std::remove_cv_t<T>;
+
         T *begin_;
         T *end_;
 
     public:
-        static constexpr size_t BITS_PER_WORD = sizeof(T) * 8;
+        static constexpr size_t BITS_PER_WORD = sizeof(unsigned_t) * 8;
 
         /// Creates a bit span over the half-open word range [begin, end).
         constexpr explicit BitSpan(T *begin, T *end) : begin_(begin), end_(end) {
+            assert(begin_ <= end_);
+        }
+
+        /// Creates a bit span over the half-open word range [begin, end).
+        constexpr explicit BitSpan(std::span<T> span) : begin_(span.data()), end_(span.data() + span.size()) {
             assert(begin_ <= end_);
         }
 
@@ -47,7 +57,9 @@ namespace smallcanon {
 
         /// Assigns value v to bit i and returns whether it was previously set.
         /// Prefer set_bit / unset_bit if you know the value at compile time.
-        bool assign_bit(size_t i, bool v) noexcept {
+        bool assign_bit(size_t i, bool v) noexcept
+            requires(!std::is_const_v<T>)
+        {
             const auto [offset, mask] = offset_and_mask(i);
 
             auto& word = begin_[offset];
@@ -58,7 +70,9 @@ namespace smallcanon {
         }
 
         /// Sets bit i and returns whether it was previously set.
-        bool set_bit(size_t i) noexcept {
+        bool set_bit(size_t i) noexcept
+            requires(!std::is_const_v<T>)
+        {
             const auto [offset, mask] = offset_and_mask(i);
 
             auto& word = begin_[offset];
@@ -68,7 +82,9 @@ namespace smallcanon {
         }
 
         /// Clears bit i and returns whether it was previously set.
-        bool unset_bit(size_t i) noexcept {
+        bool unset_bit(size_t i) noexcept
+            requires(!std::is_const_v<T>)
+        {
             const auto [offset, mask] = offset_and_mask(i);
 
             auto& word = begin_[offset];
@@ -79,10 +95,10 @@ namespace smallcanon {
 
     private:
         /// Returns the backing word offset and bit mask for bit i.
-        constexpr std::pair<size_t, T> offset_and_mask(size_t i) const noexcept {
+        constexpr std::pair<size_t, unsigned_t> offset_and_mask(size_t i) const noexcept {
             assert(i < size());
             const size_t offset = i / BITS_PER_WORD;
-            const auto mask = static_cast<T>(T(1) << (i % BITS_PER_WORD));
+            const auto mask = static_cast<unsigned_t>(unsigned_t{1} << (i % BITS_PER_WORD));
             return {offset, mask};
         }
     };

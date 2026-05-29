@@ -1,11 +1,11 @@
+#include <smallcanon/bitspan.hpp>
+
 #include <gtest/gtest.h>
 
 #include <array>
 #include <cstdint>
 #include <limits>
 #include <type_traits>
-
-#include <smallcanon/bitspan.hpp>
 
 template<typename T>
 class BitSpanTests : public testing::Test {
