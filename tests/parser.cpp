@@ -1,13 +1,17 @@
 #include <gtest/gtest.h>
 #include <smallcanon/parser.hpp>
 
+#include <sstream>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 std::tuple<smallcanon::node_t, std::vector<smallcanon::edge_t>, std::string_view>
 collect_parsed(std::string_view text) {
-    auto [n, gen, rem] = smallcanon::parse_graph6(text);
+    auto parsed = smallcanon::parse_graph6(text);
+    EXPECT_TRUE(parsed.has_value());
+    auto [n, gen, rem] = std::move(*parsed);
     std::vector<smallcanon::edge_t> edges;
     for (const smallcanon::edge_t& edge: gen) {
         edges.push_back(edge);
@@ -57,4 +61,66 @@ TEST(ParserTest, WithName) {
     const char *line = "Ds_ Star5";
     auto [n, edges, remainder] = collect_parsed(line);
     ASSERT_EQ(remainder, " Star5");
+}
+
+TEST(ParserTest, InvalidInputsReturnEmptyOptional) {
+    EXPECT_FALSE(smallcanon::parse_graph6("").has_value());
+    EXPECT_FALSE(smallcanon::parse_graph6("~?").has_value());
+    EXPECT_FALSE(smallcanon::parse_graph6("~~??????").has_value());
+    EXPECT_FALSE(smallcanon::parse_graph6("D").has_value());
+    EXPECT_FALSE(smallcanon::parse_graph6("B\x7f").has_value());
+}
+
+TEST(ParserTest, ReadDatasetYieldsOneTuplePerLineWithTrimmedName) {
+    std::istringstream input("Ds_   Star5  \n"
+                             "Bg\tPath3\n"
+                             "@\n");
+
+    struct Entry {
+        smallcanon::node_t nodes;
+        std::vector<smallcanon::edge_t> edges;
+        std::string name;
+    };
+
+    std::vector<Entry> entries;
+    for (auto&& item: smallcanon::read_dataset(input)) {
+        auto& [nodes, edge_generator, name] = item;
+
+        std::vector<smallcanon::edge_t> edges;
+        for (const auto& edge: edge_generator) {
+            edges.push_back(edge);
+        }
+
+        entries.push_back({nodes, edges, std::string{name}});
+    }
+
+    ASSERT_EQ(entries.size(), 3);
+    EXPECT_EQ(entries[0].nodes, 5);
+    EXPECT_EQ(entries[0].edges, (std::vector<smallcanon::edge_t>{{0, 1}, {0, 2}, {0, 3}, {0, 4}}));
+    EXPECT_EQ(entries[0].name, "Star5");
+
+    EXPECT_EQ(entries[1].nodes, 3);
+    EXPECT_EQ(entries[1].edges, (std::vector<smallcanon::edge_t>{{0, 1}, {1, 2}}));
+    EXPECT_EQ(entries[1].name, "Path3");
+
+    EXPECT_EQ(entries[2].nodes, 1);
+    EXPECT_TRUE(entries[2].edges.empty());
+    EXPECT_TRUE(entries[2].name.empty());
+}
+
+TEST(ParserTest, ReadDatasetSkipsInvalidLines) {
+    std::istringstream input("D\n"
+                             "@ EmptyN1\n");
+
+    std::vector<std::string> names;
+    for (auto&& item: smallcanon::read_dataset(input)) {
+        auto& [nodes, edge_generator, name] = item;
+        (void) edge_generator;
+
+        EXPECT_EQ(nodes, 1);
+        names.emplace_back(name);
+    }
+
+    ASSERT_EQ(names.size(), 1);
+    EXPECT_EQ(names[0], "EmptyN1");
 }
