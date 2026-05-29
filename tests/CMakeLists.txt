@@ -11,4 +11,6 @@ function(add_smallcanon_test name)
     gtest_discover_tests(smallcanon_test_${name})
 endfunction()
 
+add_smallcanon_test(adj_matrix)
+add_smallcanon_test(adj_matrix_storage)
 add_smallcanon_test(bitspan)
