@@ -17,7 +17,9 @@ endif ()
 
 add_library(smallcanon INTERFACE
         include/smallcanon/adj_matrix.hpp
-        include/smallcanon/bitspan.hpp)
+        include/smallcanon/bitspan.hpp
+        include/smallcanon/graph.hpp
+)
 add_library(smallcanon::smallcanon ALIAS smallcanon)
 
 target_compile_features(smallcanon INTERFACE cxx_std_23)

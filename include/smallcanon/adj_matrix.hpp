@@ -1,4 +1,5 @@
 #pragma once
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -8,16 +9,10 @@
 #include <span>
 
 #include <smallcanon/bitspan.hpp>
+#include <smallcanon/graph.hpp>
+
 
 namespace smallcanon {
-    using node_t = uint32_t;
-    using edgeid_t = uint32_t;
-    static_assert(sizeof(edgeid_t) >= sizeof(node_t)); // technically, we want node_t to fit twice into edgeid; but that
-                                                       // seems wasteful for small graphs
-
-    using edge_t = std::pair<edgeid_t, node_t>;
-
-
     /// AdjMatrix implements an adjacency matrix based on an external storage type.
     /// We are generic over the storage type to allow both stack- and heap-based allocations.
     /// The assumption that stack-based allocation is only used for small graphs, where copying the matrix is cheap.
@@ -37,34 +32,43 @@ namespace smallcanon {
         Storage storage{};
 
     public:
+        /// Creates an empty adjacency matrix using default-constructed storage.
         constexpr AdjMatrix()
             requires std::default_initializable<storage_t>
         {
             assert(storage.row_capacity() % storage_t::BITS_PER_WORD == 0);
         }
 
+        /// Creates an adjacency matrix from an existing storage object.
         constexpr explicit AdjMatrix(storage_t&& s) : storage(s) {
             assert(storage.row_capacity() % storage_t::BITS_PER_WORD == 0);
         }
 
+        /// Returns a mutable view of the whole backing word buffer.
+        /// DANGER! Uphold all invariants
         constexpr std::span<word_t> buffer() noexcept {
             return storage.buffer();
         }
 
+        /// Returns a read-only view of the whole backing word buffer.
         constexpr std::span<const word_t> buffer() const noexcept {
             return storage.buffer();
         }
 
+        /// Returns a mutable view of the backing words for row u.
+        /// DANGER! Uphold all invariants
         constexpr std::span<word_t> row(node_t u) noexcept {
             assert(u < storage.row_capacity());
             return storage.row(u);
         }
 
+        /// Returns a read-only view of the backing words for row u.
         constexpr std::span<const word_t> row(node_t u) const noexcept {
             assert(u < storage.row_capacity());
             return storage.row(u);
         }
 
+        /// Iterates over all undirected edges, yielding each edge {u,v} only once with u <= v.
         [[nodiscard]] std::generator<edge_t> edges() const noexcept {
             const auto n = storage.row_capacity();
             for (node_t u = 0; u < n; ++u) {
@@ -76,16 +80,20 @@ namespace smallcanon {
             }
         }
 
+        /// Returns whether edge {u, v} is present.
         [[nodiscard]] constexpr bool has_edge(node_t u, node_t v) const noexcept {
             assert(u < storage.row_capacity());
+            assert(v < storage.row_capacity());
             return BitSpan(storage.row(u)).get_bit(v);
         }
 
+        /// Returns the number of neighbors of node u; linear time in row-size
         [[nodiscard]] constexpr node_t count_degree(node_t u) const noexcept {
             assert(u < storage.row_capacity());
             return static_cast<node_t>(BitSpan(storage.row(u)).count_ones());
         }
 
+        /// Iterates over all neighbors of node u in ascending order.
         [[nodiscard]] std::generator<node_t> neighbors_of(node_t u) const noexcept {
             assert(u < storage.row_capacity());
             const BitSpan bits(storage.row(u));
@@ -94,7 +102,10 @@ namespace smallcanon {
             }
         }
 
+        /// Adds edge {u, v} and returns whether it was already present.
         constexpr bool add_edge(node_t u, node_t v) noexcept {
+            assert(u < storage.row_capacity());
+            assert(v < storage.row_capacity());
             assert(LOOPS_ALLOWED || u != v);
             const auto prev1 = BitSpan(storage.row(u)).set_bit(v);
             const auto prev2 = BitSpan(storage.row(v)).set_bit(u);
@@ -102,7 +113,10 @@ namespace smallcanon {
             return prev1;
         }
 
+        /// Removes edge {u, v} and returns whether it was present.
         constexpr bool remove_edge(node_t u, node_t v) noexcept {
+            assert(u < storage.row_capacity());
+            assert(v < storage.row_capacity());
             assert(LOOPS_ALLOWED || u != v);
             const auto prev1 = BitSpan(storage.row(u)).unset_bit(v);
             const auto prev2 = BitSpan(storage.row(v)).unset_bit(u);
@@ -128,32 +142,38 @@ namespace smallcanon {
         public:
             HeapStorage() = delete;
 
+            /// Allocates zero-initialized heap storage for at least row_capacity nodes.
             explicit constexpr HeapStorage(node_t row_capacity) :
                 row_capacity_(std::max(CAPACITY_OF_SMALLEST_GRAPH, std::bit_ceil(row_capacity))),
                 buffer_(std::make_unique<word_t[]>(row_capacity_ * row_capacity_ / BITS_PER_WORD)) {
                 assert(row_capacity_ > 0);
             }
 
+            /// Returns a mutable view of the whole backing word buffer.
             [[nodiscard]] constexpr std::span<word_t> buffer() noexcept {
                 return {buffer_.get(), row_capacity_ * row_capacity_ / BITS_PER_WORD};
             }
 
+            /// Returns a read-only view of the whole backing word buffer.
             [[nodiscard]] constexpr std::span<const word_t> buffer() const noexcept {
                 return {buffer_.get(), row_capacity_ * row_capacity_ / BITS_PER_WORD};
             }
 
+            /// Returns a mutable view of the backing words for row i.
             [[nodiscard]] constexpr std::span<word_t> row(size_t i) noexcept {
                 const auto words_per_row = row_capacity_ / BITS_PER_WORD;
                 const auto begin = buffer_.get() + i * words_per_row;
                 return {begin, begin + words_per_row};
             }
 
+            /// Returns a read-only view of the backing words for row i.
             [[nodiscard]] constexpr std::span<const word_t> row(size_t i) const noexcept {
                 const auto words_per_row = row_capacity_ / BITS_PER_WORD;
                 const auto begin = buffer_.get() + i * words_per_row;
                 return {begin, begin + words_per_row};
             }
 
+            /// Returns the number of bits available in each matrix row.
             [[nodiscard]] constexpr node_t row_capacity() const noexcept {
                 return row_capacity_;
             }
@@ -173,26 +193,31 @@ namespace smallcanon {
             std::array<word_t, Words> buffer_ = {};
 
         public:
+            /// Returns a mutable view of the whole backing word buffer.
             [[nodiscard]] constexpr std::span<word_t> buffer() noexcept {
                 return {buffer_};
             }
 
+            /// Returns a read-only view of the whole backing word buffer.
             [[nodiscard]] constexpr std::span<const word_t> buffer() const noexcept {
                 return {buffer_};
             }
 
+            /// Returns a mutable view of the backing words for row i.
             [[nodiscard]] constexpr std::span<word_t> row(size_t i) noexcept {
                 constexpr auto words_per_row = Capacity / BITS_PER_WORD;
                 const auto begin = buffer_.begin() + (i * words_per_row);
                 return {begin, begin + words_per_row};
             }
 
+            /// Returns a read-only view of the backing words for row i.
             [[nodiscard]] constexpr std::span<const word_t> row(size_t i) const noexcept {
                 constexpr auto words_per_row = Capacity / BITS_PER_WORD;
                 const auto begin = buffer_.begin() + (i * words_per_row);
                 return {begin, begin + words_per_row};
             }
 
+            /// Returns the number of bits available in each matrix row.
             [[nodiscard]] constexpr node_t row_capacity() const noexcept {
                 return Capacity;
             }
