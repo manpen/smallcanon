@@ -19,6 +19,7 @@ add_library(smallcanon INTERFACE
         include/smallcanon/adj_matrix.hpp
         include/smallcanon/bitspan.hpp
         include/smallcanon/graph.hpp
+        include/smallcanon/parser.hpp
 )
 add_library(smallcanon::smallcanon ALIAS smallcanon)
 
