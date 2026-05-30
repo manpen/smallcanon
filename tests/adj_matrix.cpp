@@ -23,6 +23,76 @@ namespace {
                            AdjMatrixCase<smallcanon::AdjMatrix128, 128>>;
     TYPED_TEST_SUITE(FixedAdjMatrixTests, FixedAdjMatrixTypes);
 
+    template<typename Matrix, smallcanon::node_t ExpectedCapacity>
+    struct AdjMatrixFactoryCase {
+        using matrix_t = Matrix;
+        static constexpr smallcanon::node_t expected_capacity = ExpectedCapacity;
+    };
+
+    template<>
+    struct AdjMatrixFactoryCase<smallcanon::AdjMatrix8, 8> : AdjMatrixCase<smallcanon::AdjMatrix8, 8> {
+        static smallcanon::AdjMatrix8 make(std::vector<smallcanon::edge_t>& edges) {
+            return smallcanon::make_adj_matrix8(edges);
+        }
+
+        static smallcanon::AdjMatrix8 make_default() {
+            return smallcanon::make_adj_matrix8();
+        }
+    };
+
+    template<>
+    struct AdjMatrixFactoryCase<smallcanon::AdjMatrix16, 16> : AdjMatrixCase<smallcanon::AdjMatrix16, 16> {
+        static smallcanon::AdjMatrix16 make(std::vector<smallcanon::edge_t>& edges) {
+            return smallcanon::make_adj_matrix16(edges);
+        }
+
+        static smallcanon::AdjMatrix16 make_default() {
+            return smallcanon::make_adj_matrix16();
+        }
+    };
+
+    template<>
+    struct AdjMatrixFactoryCase<smallcanon::AdjMatrix32, 32> : AdjMatrixCase<smallcanon::AdjMatrix32, 32> {
+        static smallcanon::AdjMatrix32 make(std::vector<smallcanon::edge_t>& edges) {
+            return smallcanon::make_adj_matrix32(edges);
+        }
+
+        static smallcanon::AdjMatrix32 make_default() {
+            return smallcanon::make_adj_matrix32();
+        }
+    };
+
+    template<>
+    struct AdjMatrixFactoryCase<smallcanon::AdjMatrix64, 64> : AdjMatrixCase<smallcanon::AdjMatrix64, 64> {
+        static smallcanon::AdjMatrix64 make(std::vector<smallcanon::edge_t>& edges) {
+            return smallcanon::make_adj_matrix64(edges);
+        }
+
+        static smallcanon::AdjMatrix64 make_default() {
+            return smallcanon::make_adj_matrix64();
+        }
+    };
+
+    template<>
+    struct AdjMatrixFactoryCase<smallcanon::AdjMatrix128, 128> : AdjMatrixCase<smallcanon::AdjMatrix128, 128> {
+        static smallcanon::AdjMatrix128 make(std::vector<smallcanon::edge_t>& edges) {
+            return smallcanon::make_adj_matrix128(edges);
+        }
+
+        static smallcanon::AdjMatrix128 make_default() {
+            return smallcanon::make_adj_matrix128();
+        }
+    };
+
+    template<typename T>
+    class FixedAdjMatrixFactoryTests : public testing::Test {};
+
+    using FixedAdjMatrixFactoryTypes = testing::Types<
+            AdjMatrixFactoryCase<smallcanon::AdjMatrix8, 8>, AdjMatrixFactoryCase<smallcanon::AdjMatrix16, 16>,
+            AdjMatrixFactoryCase<smallcanon::AdjMatrix32, 32>, AdjMatrixFactoryCase<smallcanon::AdjMatrix64, 64>,
+            AdjMatrixFactoryCase<smallcanon::AdjMatrix128, 128>>;
+    TYPED_TEST_SUITE(FixedAdjMatrixFactoryTests, FixedAdjMatrixFactoryTypes);
+
     template<typename Matrix>
     std::vector<smallcanon::node_t> collect_neighbors_of(const Matrix& matrix, smallcanon::node_t u) {
         std::vector<smallcanon::node_t> neighbors;
@@ -260,6 +330,32 @@ TYPED_TEST(FixedAdjMatrixTests, EdgesIncludesSelfLoopsOnce) {
     EXPECT_EQ(collect_edges(matrix), (std::vector<smallcanon::edge_t>{{1, 1}, {2, 0}}));
 }
 
+TYPED_TEST(FixedAdjMatrixFactoryTests, BuildsMatrixFromEdges) {
+    using Matrix = typename TypeParam::matrix_t;
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {2, 3}, {4, 4}};
+
+    const auto matrix = TypeParam::make(edges);
+
+    static_assert(std::is_same_v<decltype(matrix), const Matrix>);
+    EXPECT_EQ(matrix.capacity(), TypeParam::expected_capacity);
+    EXPECT_TRUE(matrix.has_edge(0, 1));
+    EXPECT_TRUE(matrix.has_edge(1, 0));
+    EXPECT_TRUE(matrix.has_edge(2, 3));
+    EXPECT_TRUE(matrix.has_edge(3, 2));
+    EXPECT_TRUE(matrix.has_edge(4, 4));
+    EXPECT_FALSE(matrix.has_edge(0, 2));
+}
+
+TYPED_TEST(FixedAdjMatrixFactoryTests, BuildsEmptyMatrixWhenEdgesArgumentIsOmitted) {
+    using Matrix = typename TypeParam::matrix_t;
+
+    const auto matrix = TypeParam::make_default();
+
+    static_assert(std::is_same_v<decltype(matrix), const Matrix>);
+    EXPECT_EQ(matrix.capacity(), TypeParam::expected_capacity);
+    EXPECT_TRUE(collect_edges(matrix).empty());
+}
+
 TEST(HeapAdjMatrixTests, ReportsCapacity) {
     smallcanon::AdjMatrixHeap matrix(smallcanon::details::HeapStorage(33));
 
@@ -293,4 +389,18 @@ TEST(HeapAdjMatrixTests, RemoveEdgesRemovesPresentEdgesAndReportsRemovedEdgeCoun
     EXPECT_FALSE(matrix.has_edge(1, 0));
     EXPECT_TRUE(matrix.has_edge(0, 2));
     EXPECT_FALSE(matrix.has_edge(2, 2));
+}
+
+TEST(HeapAdjMatrixTests, MakeHeapAdjMatrixBuildsMatrixFromEdges) {
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {2, 3}, {4, 4}};
+
+    const auto matrix = smallcanon::make_adjmatrix_heap(5, edges);
+
+    EXPECT_EQ(matrix.capacity(), 32);
+    EXPECT_TRUE(matrix.has_edge(0, 1));
+    EXPECT_TRUE(matrix.has_edge(1, 0));
+    EXPECT_TRUE(matrix.has_edge(2, 3));
+    EXPECT_TRUE(matrix.has_edge(3, 2));
+    EXPECT_TRUE(matrix.has_edge(4, 4));
+    EXPECT_FALSE(matrix.has_edge(0, 2));
 }

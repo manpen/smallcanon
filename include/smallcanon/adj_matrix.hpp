@@ -5,11 +5,14 @@
 #include <bit>
 #include <cassert>
 #include <concepts>
+#include <initializer_list>
 #include <memory>
 #include <span>
 
 #include <smallcanon/bitspan.hpp>
 #include <smallcanon/graph.hpp>
+
+#include "adj_matrix.hpp"
 
 
 namespace smallcanon {
@@ -259,6 +262,13 @@ namespace smallcanon {
         using FixedStorage32 = FixedStorage<uint32_t>;
         using FixedStorage64 = FixedStorage<uint64_t>;
         using FixedStorage128 = FixedStorage<uint64_t, 128>;
+
+        template<typename S, edge_range_c R>
+        AdjMatrix<S> make_adj_matrix_fixed(R&& edges) {
+            AdjMatrix<S> graph;
+            graph.add_edges(std::forward<R>(edges));
+            return graph;
+        }
     } // namespace details
 
     using AdjMatrix8 = AdjMatrix<details::FixedStorage8>;
@@ -270,4 +280,43 @@ namespace smallcanon {
 
     using AdjMatrixVariant =
             std::variant<AdjMatrix8, AdjMatrix16, AdjMatrix32, AdjMatrix64, AdjMatrix128, AdjMatrixHeap>;
+
+    // convenience function to construct a heap-allocated graph from a range of edges
+    template<edge_range_c R = std::initializer_list<edge_t>>
+    AdjMatrixHeap make_adjmatrix_heap(node_t n, R&& edges = {}) {
+        details::HeapStorage storage(n);
+        AdjMatrixHeap graph(std::move(storage));
+        for (auto& [u, v]: edges) {
+            assert(u < n);
+            assert(v < n);
+            graph.add_edge(u, v);
+        }
+        return graph;
+    }
+
+    template<edge_range_c R = std::initializer_list<edge_t>>
+    auto make_adj_matrix8(R&& edges = {}) {
+        return details::make_adj_matrix_fixed<details::FixedStorage8>(std::forward<R>(edges));
+    }
+
+    template<edge_range_c R = std::initializer_list<edge_t>>
+    auto make_adj_matrix16(R&& edges = {}) {
+        return details::make_adj_matrix_fixed<details::FixedStorage16>(std::forward<R>(edges));
+    }
+
+    template<edge_range_c R = std::initializer_list<edge_t>>
+    auto make_adj_matrix32(R&& edges = {}) {
+        return details::make_adj_matrix_fixed<details::FixedStorage32>(std::forward<R>(edges));
+    }
+
+    template<edge_range_c R = std::initializer_list<edge_t>>
+    auto make_adj_matrix64(R&& edges = {}) {
+        return details::make_adj_matrix_fixed<details::FixedStorage64>(std::forward<R>(edges));
+    }
+
+    template<edge_range_c R = std::initializer_list<edge_t>>
+    auto make_adj_matrix128(R&& edges = {}) {
+        return details::make_adj_matrix_fixed<details::FixedStorage128>(std::forward<R>(edges));
+    }
+
 } // namespace smallcanon
