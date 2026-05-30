@@ -69,6 +69,12 @@ TYPED_TEST(FixedAdjMatrixTests, ExposesRows) {
     EXPECT_EQ(row.size(), expected_words_per_row);
 }
 
+TYPED_TEST(FixedAdjMatrixTests, ReportsCapacity) {
+    typename TypeParam::matrix_t matrix;
+
+    EXPECT_EQ(matrix.capacity(), TypeParam::expected_capacity);
+}
+
 TYPED_TEST(FixedAdjMatrixTests, NewMatrixHasNoEdges) {
     typename TypeParam::matrix_t matrix;
 
@@ -101,6 +107,31 @@ TYPED_TEST(FixedAdjMatrixTests, AddEdgeWorksAtHighestValidNodeIndex) {
     EXPECT_TRUE(matrix.has_edge(v, u));
 }
 
+TYPED_TEST(FixedAdjMatrixTests, AddEdgesAddsNewEdgesAndReportsNewEdgeCount) {
+    typename TypeParam::matrix_t matrix;
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {0, 2}, {0, 1}, {2, 2}};
+
+    EXPECT_EQ(matrix.add_edges(edges), 3);
+
+    EXPECT_TRUE(matrix.has_edge(0, 1));
+    EXPECT_TRUE(matrix.has_edge(1, 0));
+    EXPECT_TRUE(matrix.has_edge(0, 2));
+    EXPECT_TRUE(matrix.has_edge(2, 0));
+    EXPECT_TRUE(matrix.has_edge(2, 2));
+}
+
+TYPED_TEST(FixedAdjMatrixTests, AddEdgesOnlyCountsEdgesNotAlreadyPresent) {
+    typename TypeParam::matrix_t matrix;
+    ASSERT_FALSE(matrix.add_edge(0, 1));
+
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {1, 2}};
+
+    EXPECT_EQ(matrix.add_edges(edges), 1);
+
+    EXPECT_TRUE(matrix.has_edge(0, 1));
+    EXPECT_TRUE(matrix.has_edge(1, 2));
+}
+
 TYPED_TEST(FixedAdjMatrixTests, RemoveEdgeClearsBothDirectionsAndReturnsPreviousState) {
     typename TypeParam::matrix_t matrix;
 
@@ -111,6 +142,34 @@ TYPED_TEST(FixedAdjMatrixTests, RemoveEdgeClearsBothDirectionsAndReturnsPrevious
     EXPECT_FALSE(matrix.has_edge(1, 0));
 
     EXPECT_FALSE(matrix.remove_edge(0, 1));
+    EXPECT_FALSE(matrix.has_edge(0, 1));
+    EXPECT_FALSE(matrix.has_edge(1, 0));
+}
+
+TYPED_TEST(FixedAdjMatrixTests, RemoveEdgesRemovesPresentEdgesAndReportsRemovedEdgeCount) {
+    typename TypeParam::matrix_t matrix;
+    ASSERT_FALSE(matrix.add_edge(0, 1));
+    ASSERT_FALSE(matrix.add_edge(0, 2));
+    ASSERT_FALSE(matrix.add_edge(2, 2));
+
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {1, 2}, {2, 2}, {0, 1}};
+
+    EXPECT_EQ(matrix.remove_edges(edges), 2);
+
+    EXPECT_FALSE(matrix.has_edge(0, 1));
+    EXPECT_FALSE(matrix.has_edge(1, 0));
+    EXPECT_TRUE(matrix.has_edge(0, 2));
+    EXPECT_FALSE(matrix.has_edge(2, 2));
+}
+
+TYPED_TEST(FixedAdjMatrixTests, RemoveEdgesOnlyCountsEdgesPresentAtRemovalTime) {
+    typename TypeParam::matrix_t matrix;
+    ASSERT_FALSE(matrix.add_edge(0, 1));
+
+    std::vector<smallcanon::edge_t> edges{{1, 2}, {0, 1}, {0, 1}};
+
+    EXPECT_EQ(matrix.remove_edges(edges), 1);
+
     EXPECT_FALSE(matrix.has_edge(0, 1));
     EXPECT_FALSE(matrix.has_edge(1, 0));
 }
@@ -199,4 +258,39 @@ TYPED_TEST(FixedAdjMatrixTests, EdgesIncludesSelfLoopsOnce) {
     matrix.add_edge(0, 2);
 
     EXPECT_EQ(collect_edges(matrix), (std::vector<smallcanon::edge_t>{{1, 1}, {2, 0}}));
+}
+
+TEST(HeapAdjMatrixTests, ReportsCapacity) {
+    smallcanon::AdjMatrixHeap matrix(smallcanon::details::HeapStorage(33));
+
+    EXPECT_EQ(matrix.capacity(), 64);
+}
+
+TEST(HeapAdjMatrixTests, AddEdgesAddsNewEdgesAndReportsNewEdgeCount) {
+    smallcanon::AdjMatrixHeap matrix(smallcanon::details::HeapStorage(33));
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {0, 2}, {0, 1}, {2, 2}};
+
+    EXPECT_EQ(matrix.add_edges(edges), 3);
+
+    EXPECT_TRUE(matrix.has_edge(0, 1));
+    EXPECT_TRUE(matrix.has_edge(1, 0));
+    EXPECT_TRUE(matrix.has_edge(0, 2));
+    EXPECT_TRUE(matrix.has_edge(2, 0));
+    EXPECT_TRUE(matrix.has_edge(2, 2));
+}
+
+TEST(HeapAdjMatrixTests, RemoveEdgesRemovesPresentEdgesAndReportsRemovedEdgeCount) {
+    smallcanon::AdjMatrixHeap matrix(smallcanon::details::HeapStorage(33));
+    ASSERT_FALSE(matrix.add_edge(0, 1));
+    ASSERT_FALSE(matrix.add_edge(0, 2));
+    ASSERT_FALSE(matrix.add_edge(2, 2));
+
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {1, 2}, {2, 2}, {0, 1}};
+
+    EXPECT_EQ(matrix.remove_edges(edges), 2);
+
+    EXPECT_FALSE(matrix.has_edge(0, 1));
+    EXPECT_FALSE(matrix.has_edge(1, 0));
+    EXPECT_TRUE(matrix.has_edge(0, 2));
+    EXPECT_FALSE(matrix.has_edge(2, 2));
 }

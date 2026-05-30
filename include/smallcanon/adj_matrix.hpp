@@ -46,24 +46,29 @@ namespace smallcanon {
 
         /// Returns a mutable view of the whole backing word buffer.
         /// DANGER! Uphold all invariants
-        constexpr std::span<word_t> buffer() noexcept {
+        [[nodiscard]] constexpr std::span<word_t> buffer() noexcept {
             return storage.buffer();
         }
 
         /// Returns a read-only view of the whole backing word buffer.
-        constexpr std::span<const word_t> buffer() const noexcept {
+        [[nodiscard]] constexpr std::span<const word_t> buffer() const noexcept {
             return storage.buffer();
+        }
+
+        /// Returns the number of rows
+        [[nodiscard]] constexpr node_t capacity() const noexcept {
+            return storage.row_capacity();
         }
 
         /// Returns a mutable view of the backing words for row u.
         /// DANGER! Uphold all invariants
-        constexpr std::span<word_t> row(node_t u) noexcept {
+        [[nodiscard]] constexpr std::span<word_t> row(node_t u) noexcept {
             assert(u < storage.row_capacity());
             return storage.row(u);
         }
 
         /// Returns a read-only view of the backing words for row u.
-        constexpr std::span<const word_t> row(node_t u) const noexcept {
+        [[nodiscard]] constexpr std::span<const word_t> row(node_t u) const noexcept {
             assert(u < storage.row_capacity());
             return storage.row(u);
         }
@@ -123,6 +128,32 @@ namespace smallcanon {
             assert(prev1 == prev2 || (LOOPS_ALLOWED && u == v));
             (void) prev2;
             return prev1;
+        }
+
+        /// Adds all edge of the provided range.
+        /// Existing or duplicate edges are acceptable (and are ignored)
+        /// Returns the number of new edges inserted.
+        template<edge_range_c R>
+        constexpr edgeid_t add_edges(R&& edges) noexcept {
+            edgeid_t new_edges = 0;
+            for (auto& [u, v]: edges) {
+                const bool existed_before = add_edge(u, v);
+                new_edges += !existed_before;
+            }
+            return new_edges;
+        }
+
+        /// Remove all edges in of the range provided.
+        /// Non-existing edges or duplicates are acceptable.
+        /// Returns the number of edges acutally deleted.
+        template<edge_range_c R>
+        constexpr edgeid_t remove_edges(R&& edges) noexcept {
+            edgeid_t removed_edges = 0;
+            for (auto& [u, v]: edges) {
+                const bool existed_before = remove_edge(u, v);
+                removed_edges += existed_before;
+            }
+            return removed_edges;
         }
     };
 
