@@ -10,4 +10,6 @@ namespace smallcanon {
     // seems wasteful for small graphs
 
     using edge_t = std::pair<edgeid_t, node_t>;
+
+    using color_t = node_t;
 } // namespace smallcanon

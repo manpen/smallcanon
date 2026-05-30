@@ -4,6 +4,7 @@ SET(SMALL_CANON_TESTS
         adj_matrix
         adj_matrix_storage
         bitspan
+        coloring
         parser
 )
 
