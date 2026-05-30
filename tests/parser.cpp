@@ -131,8 +131,8 @@ TEST(ParserTest, ReadGraphDataSet) {
     const auto dataset_path = std::filesystem::path(SMALLCANON_PROJECT_ROOT) / "datasets" / "paths.g6";
     ASSERT_TRUE(std::filesystem::exists(dataset_path));
 
-    std::ifstream curated(dataset_path);
-    ASSERT_TRUE(curated);
+    std::ifstream paths_file(dataset_path);
+    ASSERT_TRUE(paths_file);
 
     uint64_t num8 = 0;
     uint64_t num16 = 0;
@@ -141,7 +141,7 @@ TEST(ParserTest, ReadGraphDataSet) {
     uint64_t num128 = 0;
     uint64_t num_heap = 0;
 
-    for (auto [name, graph]: smallcanon::read_graph_dataset(curated)) {
+    for (auto [name, graph]: smallcanon::read_graph_dataset(paths_file)) {
         std::visit(
                 [&](auto&& arg) {
                     using T = std::decay_t<decltype(arg)>;

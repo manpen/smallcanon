@@ -6,6 +6,7 @@ SET(SMALL_CANON_TESTS
         bitspan
         coloring
         parser
+        refine
 )
 
 function(add_smallcanon_test name)
