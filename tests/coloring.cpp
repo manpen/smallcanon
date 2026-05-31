@@ -17,11 +17,7 @@ namespace {
         static constexpr smallcanon::node_t expected_capacity = ExpectedCapacity;
 
         static Storage make_storage() {
-            if constexpr (std::default_initializable<Storage>) {
-                return Storage{};
-            } else {
-                return Storage{ExpectedCapacity};
-            }
+            return Storage{ExpectedCapacity};
         }
     };
 
@@ -36,34 +32,13 @@ namespace {
                                            ColorStoreCase<smallcanon::details::ColorStoreHeap, 128>>;
     TYPED_TEST_SUITE(ColorStoreTests, ColorStoreTypes);
 
-    template<typename T>
-    class FixedColorStoreDefaultConstructibleTests : public testing::Test {};
-
-    using FixedColorStoreTypes = testing::Types<ColorStoreCase<smallcanon::details::FixedColorStore8, 8>,
-                                                ColorStoreCase<smallcanon::details::FixedColorStore16, 16>,
-                                                ColorStoreCase<smallcanon::details::FixedColorStore32, 32>,
-                                                ColorStoreCase<smallcanon::details::FixedColorStore64, 64>,
-                                                ColorStoreCase<smallcanon::details::FixedColorStore128, 128>>;
-    TYPED_TEST_SUITE(FixedColorStoreDefaultConstructibleTests, FixedColorStoreTypes);
-
-    template<typename Coloring, typename Storage, smallcanon::node_t ExpectedCapacity>
-    struct FixedColoringCase {
+    template<typename Coloring, smallcanon::node_t ExpectedCapacity>
+    struct ColoringCase {
         using coloring_t = Coloring;
-        using storage_t = Storage;
         static constexpr smallcanon::node_t expected_capacity = ExpectedCapacity;
 
         static Coloring make_coloring() {
-            return Coloring{Storage{}};
-        }
-    };
-
-    struct HeapColoringCase {
-        using coloring_t = smallcanon::ColoringHeap;
-        using storage_t = smallcanon::details::ColorStoreHeap;
-        static constexpr smallcanon::node_t expected_capacity = 128;
-
-        static coloring_t make_coloring() {
-            return coloring_t{storage_t{expected_capacity}};
+            return Coloring{ExpectedCapacity};
         }
     };
 
@@ -71,42 +46,17 @@ namespace {
     class ColoringTests : public testing::Test {};
 
     using ColoringTypes =
-            testing::Types<FixedColoringCase<smallcanon::Coloring8, smallcanon::details::FixedColorStore8, 8>,
-                           FixedColoringCase<smallcanon::Coloring16, smallcanon::details::FixedColorStore16, 16>,
-                           FixedColoringCase<smallcanon::Coloring32, smallcanon::details::FixedColorStore32, 32>,
-                           FixedColoringCase<smallcanon::Coloring64, smallcanon::details::FixedColorStore64, 64>,
-                           FixedColoringCase<smallcanon::Coloring128, smallcanon::details::FixedColorStore128, 128>,
-                           HeapColoringCase>;
+            testing::Types<ColoringCase<smallcanon::Coloring8, 8>, ColoringCase<smallcanon::Coloring16, 16>,
+                           ColoringCase<smallcanon::Coloring32, 32>, ColoringCase<smallcanon::Coloring64, 64>,
+                           ColoringCase<smallcanon::Coloring128, 128>, ColoringCase<smallcanon::ColoringHeap, 128>>;
     TYPED_TEST_SUITE(ColoringTests, ColoringTypes);
-
-    template<typename T>
-    class FixedColoringDefaultConstructibleTests : public testing::Test {};
-
-    using FixedColoringTypes =
-            testing::Types<FixedColoringCase<smallcanon::Coloring8, smallcanon::details::FixedColorStore8, 8>,
-                           FixedColoringCase<smallcanon::Coloring16, smallcanon::details::FixedColorStore16, 16>,
-                           FixedColoringCase<smallcanon::Coloring32, smallcanon::details::FixedColorStore32, 32>,
-                           FixedColoringCase<smallcanon::Coloring64, smallcanon::details::FixedColorStore64, 64>,
-                           FixedColoringCase<smallcanon::Coloring128, smallcanon::details::FixedColorStore128, 128>>;
-    TYPED_TEST_SUITE(FixedColoringDefaultConstructibleTests, FixedColoringTypes);
 } // namespace
 
-TYPED_TEST(FixedColorStoreDefaultConstructibleTests, IsDefaultConstructible) {
+TYPED_TEST(ColorStoreTests, IsConstructibleFromCapacity) {
     using Storage = typename TypeParam::storage_t;
 
-    static_assert(std::is_default_constructible_v<Storage>);
-    static_assert(std::default_initializable<Storage>);
-    [[maybe_unused]] Storage storage;
-}
-
-TEST(ColorStoreHeapTests, IsNotDefaultConstructible) {
-    using Storage = smallcanon::details::ColorStoreHeap;
-
-    static_assert(!std::is_default_constructible_v<Storage>);
-    static_assert(!std::default_initializable<Storage>);
     static_assert(std::is_constructible_v<Storage, smallcanon::node_t>);
-
-    [[maybe_unused]] Storage storage(128);
+    [[maybe_unused]] Storage storage(TypeParam::expected_capacity);
 }
 
 TYPED_TEST(ColorStoreTests, ExposesMutableBufferRange) {
@@ -153,30 +103,13 @@ TYPED_TEST(ColorStoreTests, MutableWritesAreVisibleThroughConstRange) {
     EXPECT_EQ(const_buffer[TypeParam::expected_capacity - 1], static_cast<Color>(13));
 }
 
-TYPED_TEST(FixedColoringDefaultConstructibleTests, IsDefaultConstructible) {
+TYPED_TEST(ColoringTests, IsConstructibleFromCapacityButNotDefaultConstructible) {
     using Coloring = typename TypeParam::coloring_t;
-
-    static_assert(std::is_default_constructible_v<Coloring>);
-    static_assert(std::default_initializable<Coloring>);
-    [[maybe_unused]] Coloring coloring;
-}
-
-TEST(ColoringHeapTests, IsNotDefaultConstructible) {
-    using Coloring = smallcanon::ColoringHeap;
 
     static_assert(!std::is_default_constructible_v<Coloring>);
     static_assert(!std::default_initializable<Coloring>);
-    static_assert(std::is_constructible_v<Coloring, smallcanon::details::ColorStoreHeap&&>);
-
-    [[maybe_unused]] Coloring coloring{smallcanon::details::ColorStoreHeap{128}};
-}
-
-TYPED_TEST(ColoringTests, CanBeConstructedFromStorage) {
-    using Coloring = typename TypeParam::coloring_t;
-    using Storage = typename TypeParam::storage_t;
-
-    static_assert(std::is_constructible_v<Coloring, Storage&&>);
-    [[maybe_unused]] Coloring coloring = TypeParam::make_coloring();
+    static_assert(std::is_constructible_v<Coloring, smallcanon::node_t>);
+    [[maybe_unused]] Coloring coloring(TypeParam::expected_capacity);
 }
 
 TYPED_TEST(ColoringTests, ReportsCapacity) {
@@ -209,4 +142,23 @@ TYPED_TEST(ColoringTests, SetColorWorksAtHighestNodeAndColor) {
 
     EXPECT_EQ(coloring.set_color(last_node, last_color), 0);
     EXPECT_EQ(coloring.get_color(last_node), last_color);
+}
+
+TYPED_TEST(ColoringTests, CopyPreservesColorsAndIsIndependent) {
+    auto coloring = TypeParam::make_coloring();
+    constexpr auto last_node = TypeParam::expected_capacity - 1;
+
+    coloring.set_color(0, 1);
+    coloring.set_color(last_node, last_node);
+
+    auto copied = coloring.copy();
+
+    EXPECT_EQ(copied.capacity(), coloring.capacity());
+    EXPECT_EQ(copied.get_color(0), 1);
+    EXPECT_EQ(copied.get_color(last_node), last_node);
+
+    copied.set_color(0, 2);
+
+    EXPECT_EQ(coloring.get_color(0), 1);
+    EXPECT_EQ(copied.get_color(0), 2);
 }

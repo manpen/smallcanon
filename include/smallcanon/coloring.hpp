@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <concepts>
@@ -19,15 +20,12 @@ namespace smallcanon {
         storage_t storage;
 
     public:
-        /// Creates a coloring using default-constructed storage.
-        /// All colors are initialized to 0
-        constexpr Coloring()
-            requires std::default_initializable<storage_t>
-        {}
+        constexpr Coloring() = delete;
 
-        /// Creates a coloring from a storage type.
-        constexpr explicit Coloring(storage_t&& s) : storage(std::move(s)) {}
+        /// Creates a coloring for capacity nodes.
+        constexpr explicit Coloring(node_t capacity) : storage(capacity) {}
 
+        constexpr Coloring(Coloring&&) = default;
 
         /// Returns the number of nodes supported.
         [[nodiscard]] node_t capacity() const noexcept {
@@ -52,6 +50,19 @@ namespace smallcanon {
             const auto prev = static_cast<color_t>(color);
             color = static_cast<scolor_t>(new_color);
             return prev;
+        }
+
+        /// Copy the coloring; we do not use the copy-constructor to avoid performance bugs.
+        [[nodiscard]] constexpr Coloring copy() const {
+            Coloring copied(capacity());
+            std::ranges::copy(storage.buffer(), copied.storage.buffer().begin());
+            return copied;
+        }
+
+        /// Two colorings are equal if they map to the exact same colors.
+        template<typename SC>
+        constexpr bool operator==(const Coloring<SC>& rhs) const noexcept {
+            return std::ranges::equal(storage.buffer(), rhs.storage.buffer());
         }
     };
 
@@ -106,6 +117,11 @@ namespace smallcanon {
         public:
             /// Creates zero-initialized fixed color storage.
             constexpr explicit FixedColorStore() = default;
+
+            /// Compatibility with Heap Storage constructor
+            constexpr explicit FixedColorStore(node_t capacity) {
+                assert(capacity <= Capacity);
+            }
 
             /// Disallows copying fixed color storage.
             constexpr FixedColorStore(const FixedColorStore&) = delete;
