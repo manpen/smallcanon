@@ -86,15 +86,6 @@ namespace smallcanon {
                 }
             }
         }
-
-        template<typename M>
-        M build_fixed_adjmatrix(auto&& edges) {
-            M matrix;
-            for (auto [u, v]: edges) {
-                matrix.add_edge(u, v);
-            }
-            return matrix;
-        }
     } // namespace details
 
     inline std::optional<parsed_graph6_t> parse_graph6(std::string_view text) {
@@ -141,31 +132,30 @@ namespace smallcanon {
     }
 
     inline std::generator<std::pair<std::string_view, AdjMatrixVariant>> read_graph_dataset(std::istream& input) {
-        for (auto [n, edge, name]: read_dataset(input)) {
+        for (auto [n, edges, name]: read_dataset(input)) {
             if (n <= 8) {
-                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix8>(edge)}};
+                co_yield {name, make_adj_matrix8(n, edges)};
                 continue;
             }
             if (n <= 16) {
-                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix16>(edge)}};
+                co_yield {name, make_adj_matrix16(n, edges)};
                 continue;
             }
             if (n <= 32) {
-                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix32>(edge)}};
+                co_yield {name, make_adj_matrix32(n, edges)};
                 continue;
             }
             if (n <= 64) {
-                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix64>(edge)}};
+                co_yield {name, make_adj_matrix64(n, edges)};
                 continue;
             }
             if (n <= 128) {
-                co_yield {name, {details::build_fixed_adjmatrix<AdjMatrix128>(edge)}};
+                co_yield {name, make_adj_matrix128(n, edges)};
                 continue;
             }
 
-            details::HeapStorage hs(n);
-            AdjMatrixHeap matrix(std::move(hs));
-            for (auto [u, v]: edge) {
+            AdjMatrixHeap matrix(n);
+            for (auto [u, v]: edges) {
                 matrix.add_edge(u, v);
             }
 

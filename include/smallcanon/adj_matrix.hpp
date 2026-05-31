@@ -33,18 +33,23 @@ namespace smallcanon {
 
     private:
         Storage storage{};
+        node_t n;
 
     public:
-        /// Creates an empty adjacency matrix using default-constructed storage.
-        constexpr AdjMatrix()
-            requires std::default_initializable<storage_t>
-        {
+        /// Creates an adjacency matrix from an existing storage object.
+        constexpr explicit AdjMatrix(node_t n) : storage(n), n(n) {
             assert(storage.row_capacity() % storage_t::BITS_PER_WORD == 0);
+            assert(n <= storage.row_capacity());
         }
 
-        /// Creates an adjacency matrix from an existing storage object.
-        constexpr explicit AdjMatrix(storage_t&& s) : storage(std::move(s)) {
-            assert(storage.row_capacity() % storage_t::BITS_PER_WORD == 0);
+        /// Returns the number of nodes
+        [[nodiscard]] constexpr node_t num_nodes() const noexcept {
+            return n;
+        }
+
+        /// Returns the number of rows
+        [[nodiscard]] constexpr node_t capacity() const noexcept {
+            return storage.row_capacity();
         }
 
         /// Returns a mutable view of the whole backing word buffer.
@@ -58,27 +63,21 @@ namespace smallcanon {
             return storage.buffer();
         }
 
-        /// Returns the number of rows
-        [[nodiscard]] constexpr node_t capacity() const noexcept {
-            return storage.row_capacity();
-        }
-
         /// Returns a mutable view of the backing words for row u.
         /// DANGER! Uphold all invariants
         [[nodiscard]] constexpr std::span<word_t> row(node_t u) noexcept {
-            assert(u < storage.row_capacity());
+            assert(u < n);
             return storage.row(u);
         }
 
         /// Returns a read-only view of the backing words for row u.
         [[nodiscard]] constexpr std::span<const word_t> row(node_t u) const noexcept {
-            assert(u < storage.row_capacity());
+            assert(u < n);
             return storage.row(u);
         }
 
         /// Iterates over all undirected edges, yielding each edge {u,v} only once with u <= v.
         [[nodiscard]] std::generator<edge_t> edges() const noexcept {
-            const auto n = storage.row_capacity();
             for (node_t u = 0; u < n; ++u) {
                 for (node_t v: neighbors_of(u)) {
                     if (v > u)
@@ -90,8 +89,8 @@ namespace smallcanon {
 
         /// Returns whether edge {u, v} is present.
         [[nodiscard]] constexpr bool has_edge(node_t u, node_t v) const noexcept {
-            assert(u < storage.row_capacity());
-            assert(v < storage.row_capacity());
+            assert(u < n);
+            assert(v < n);
             return BitSpan(storage.row(u)).get_bit(v);
         }
 
@@ -106,14 +105,15 @@ namespace smallcanon {
             assert(u < storage.row_capacity());
             const BitSpan bits(storage.row(u));
             for (const auto v: bits.iterate_set_bits()) {
+                assert(v < n);
                 co_yield static_cast<node_t>(v);
             }
         }
 
         /// Adds edge {u, v} and returns whether it was already present.
         constexpr bool add_edge(node_t u, node_t v) noexcept {
-            assert(u < storage.row_capacity());
-            assert(v < storage.row_capacity());
+            assert(u < n);
+            assert(v < n);
             assert(LOOPS_ALLOWED || u != v);
             const auto prev1 = BitSpan(storage.row(u)).set_bit(v);
             const auto prev2 = BitSpan(storage.row(v)).set_bit(u);
@@ -123,8 +123,8 @@ namespace smallcanon {
 
         /// Removes edge {u, v} and returns whether it was present.
         constexpr bool remove_edge(node_t u, node_t v) noexcept {
-            assert(u < storage.row_capacity());
-            assert(v < storage.row_capacity());
+            assert(u < n);
+            assert(v < n);
             assert(LOOPS_ALLOWED || u != v);
             const auto prev1 = BitSpan(storage.row(u)).unset_bit(v);
             const auto prev2 = BitSpan(storage.row(v)).unset_bit(u);
@@ -139,7 +139,7 @@ namespace smallcanon {
         template<edge_range_c R>
         constexpr edgeid_t add_edges(R&& edges) noexcept {
             edgeid_t new_edges = 0;
-            for (auto& [u, v]: edges) {
+            for (const auto& [u, v]: edges) {
                 const bool existed_before = add_edge(u, v);
                 new_edges += !existed_before;
             }
@@ -161,7 +161,7 @@ namespace smallcanon {
     };
 
     namespace details {
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         /// Fixed storage (without heap)
         class HeapStorage {
         public:
@@ -213,13 +213,14 @@ namespace smallcanon {
             }
         };
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         /// Fixed storage (without heap)
         template<std::unsigned_integral Word, node_t Capacity = sizeof(Word) * 8>
         class FixedStorage {
         public:
             using word_t = Word;
             static constexpr size_t BITS_PER_WORD = 8 * sizeof(word_t);
+            static constexpr node_t CAPACITY = Capacity;
 
         private:
             static_assert(std::has_single_bit(Capacity)); // is power of two
@@ -227,6 +228,13 @@ namespace smallcanon {
             std::array<word_t, Words> buffer_ = {};
 
         public:
+            FixedStorage() = default;
+
+            /// Constructs a Fixed Storage
+            explicit constexpr FixedStorage(node_t n) noexcept {
+                assert(n <= Capacity);
+            }
+
             /// Returns a mutable view of the whole backing word buffer.
             [[nodiscard]] constexpr std::span<word_t> buffer() noexcept {
                 return {buffer_};
@@ -264,8 +272,8 @@ namespace smallcanon {
         using FixedStorage128 = FixedStorage<uint64_t, 128>;
 
         template<typename S, edge_range_c R>
-        AdjMatrix<S> make_adj_matrix_fixed(R&& edges) {
-            AdjMatrix<S> graph;
+        AdjMatrix<S> make_adj_matrix(node_t n, R&& edges) {
+            AdjMatrix<S> graph(n);
             graph.add_edges(std::forward<R>(edges));
             return graph;
         }
@@ -284,39 +292,32 @@ namespace smallcanon {
     // convenience function to construct a heap-allocated graph from a range of edges
     template<edge_range_c R = std::initializer_list<edge_t>>
     AdjMatrixHeap make_adjmatrix_heap(node_t n, R&& edges = {}) {
-        details::HeapStorage storage(n);
-        AdjMatrixHeap graph(std::move(storage));
-        for (auto& [u, v]: edges) {
-            assert(u < n);
-            assert(v < n);
-            graph.add_edge(u, v);
-        }
-        return graph;
+        return details::make_adj_matrix<details::HeapStorage>(n, std::forward<R>(edges));
     }
 
     template<edge_range_c R = std::initializer_list<edge_t>>
-    auto make_adj_matrix8(R&& edges = {}) {
-        return details::make_adj_matrix_fixed<details::FixedStorage8>(std::forward<R>(edges));
+    auto make_adj_matrix8(node_t n = 8, R&& edges = {}) {
+        return details::make_adj_matrix<details::FixedStorage8>(n, std::forward<R>(edges));
     }
 
     template<edge_range_c R = std::initializer_list<edge_t>>
-    auto make_adj_matrix16(R&& edges = {}) {
-        return details::make_adj_matrix_fixed<details::FixedStorage16>(std::forward<R>(edges));
+    auto make_adj_matrix16(node_t n = 16, R&& edges = {}) {
+        return details::make_adj_matrix<details::FixedStorage16>(n, std::forward<R>(edges));
     }
 
     template<edge_range_c R = std::initializer_list<edge_t>>
-    auto make_adj_matrix32(R&& edges = {}) {
-        return details::make_adj_matrix_fixed<details::FixedStorage32>(std::forward<R>(edges));
+    auto make_adj_matrix32(node_t n = 32, R&& edges = {}) {
+        return details::make_adj_matrix<details::FixedStorage32>(n, std::forward<R>(edges));
     }
 
     template<edge_range_c R = std::initializer_list<edge_t>>
-    auto make_adj_matrix64(R&& edges = {}) {
-        return details::make_adj_matrix_fixed<details::FixedStorage64>(std::forward<R>(edges));
+    auto make_adj_matrix64(node_t n = 64, R&& edges = {}) {
+        return details::make_adj_matrix<details::FixedStorage64>(n, std::forward<R>(edges));
     }
 
     template<edge_range_c R = std::initializer_list<edge_t>>
-    auto make_adj_matrix128(R&& edges = {}) {
-        return details::make_adj_matrix_fixed<details::FixedStorage128>(std::forward<R>(edges));
+    auto make_adj_matrix128(node_t n = 128, R&& edges = {}) {
+        return details::make_adj_matrix<details::FixedStorage128>(n, std::forward<R>(edges));
     }
 
 } // namespace smallcanon
