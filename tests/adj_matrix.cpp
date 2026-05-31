@@ -106,6 +106,16 @@ TYPED_TEST(AdjMatrixTests, ReportsNumNodes) {
     EXPECT_GE(matrix.num_nodes(), TypeParam::NUM_NODES);
 }
 
+TYPED_TEST(AdjMatrixTests, IterateNodes) {
+    const auto matrix = TypeParam::make_matrix();
+
+    smallcanon::node_t expect = 0;
+    for (auto u: matrix.nodes()) {
+        EXPECT_EQ(u, expect++);
+    }
+
+    EXPECT_EQ(expect, matrix.num_nodes());
+}
 
 TYPED_TEST(AdjMatrixTests, NewMatrixHasNoEdges) {
     const auto matrix = TypeParam::make_matrix();

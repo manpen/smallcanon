@@ -19,7 +19,7 @@ namespace smallcanon {
             color_t color = 0;
             for (node_t round = 1; round < graph.num_nodes(); ++round) {
                 // build fingerprints
-                for (node_t u = 0; u < graph.num_nodes(); ++u) {
+                for (node_t u : graph.nodes()) {
                     auto& fp = fingerprints[u];
                     fp.clear();
                     fp.push_back(coloring.get_color(u));
@@ -41,7 +41,7 @@ namespace smallcanon {
 
                 bool change = false;
                 color = 0;
-                for (node_t i = 0; i < graph.num_nodes(); ++i) {
+                for (node_t i : graph.nodes()) {
                     const auto node = fingerprints[i].back();
                     fingerprints[i].pop_back();
 

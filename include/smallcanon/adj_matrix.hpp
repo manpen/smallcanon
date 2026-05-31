@@ -33,18 +33,23 @@ namespace smallcanon {
 
     private:
         Storage storage{};
-        node_t n;
+        node_t n_;
 
     public:
         /// Creates an adjacency matrix from an existing storage object.
-        constexpr explicit AdjMatrix(node_t n) : storage(n), n(n) {
+        constexpr explicit AdjMatrix(node_t num_nodes) : storage(num_nodes), n_(num_nodes) {
             assert(storage.row_capacity() % storage_t::BITS_PER_WORD == 0);
-            assert(n <= storage.row_capacity());
+            assert(num_nodes <= storage.row_capacity());
         }
 
         /// Returns the number of nodes
         [[nodiscard]] constexpr node_t num_nodes() const noexcept {
-            return n;
+            return n_;
+        }
+
+        /// Returns a view of the nodes (iterating from [0 .. num_nodes()))
+        [[nodiscard]] constexpr std::ranges::iota_view<node_t, node_t> nodes() const noexcept {
+            return std::ranges::iota_view{node_t(0), num_nodes()};
         }
 
         /// Returns the number of rows
@@ -66,19 +71,19 @@ namespace smallcanon {
         /// Returns a mutable view of the backing words for row u.
         /// DANGER! Uphold all invariants
         [[nodiscard]] constexpr std::span<word_t> row(node_t u) noexcept {
-            assert(u < n);
+            assert(u < n_);
             return storage.row(u);
         }
 
         /// Returns a read-only view of the backing words for row u.
         [[nodiscard]] constexpr std::span<const word_t> row(node_t u) const noexcept {
-            assert(u < n);
+            assert(u < n_);
             return storage.row(u);
         }
 
         /// Iterates over all undirected edges, yielding each edge {u,v} only once with u <= v.
         [[nodiscard]] std::generator<edge_t> edges() const noexcept {
-            for (node_t u = 0; u < n; ++u) {
+            for (node_t u: nodes()) {
                 for (node_t v: neighbors_of(u)) {
                     if (v > u)
                         break;
@@ -89,8 +94,8 @@ namespace smallcanon {
 
         /// Returns whether edge {u, v} is present.
         [[nodiscard]] constexpr bool has_edge(node_t u, node_t v) const noexcept {
-            assert(u < n);
-            assert(v < n);
+            assert(u < n_);
+            assert(v < n_);
             return BitSpan(storage.row(u)).get_bit(v);
         }
 
@@ -105,15 +110,15 @@ namespace smallcanon {
             assert(u < storage.row_capacity());
             const BitSpan bits(storage.row(u));
             for (const auto v: bits.iterate_set_bits()) {
-                assert(v < n);
+                assert(v < n_);
                 co_yield static_cast<node_t>(v);
             }
         }
 
         /// Adds edge {u, v} and returns whether it was already present.
         constexpr bool add_edge(node_t u, node_t v) noexcept {
-            assert(u < n);
-            assert(v < n);
+            assert(u < n_);
+            assert(v < n_);
             assert(LOOPS_ALLOWED || u != v);
             const auto prev1 = BitSpan(storage.row(u)).set_bit(v);
             const auto prev2 = BitSpan(storage.row(v)).set_bit(u);
@@ -123,8 +128,8 @@ namespace smallcanon {
 
         /// Removes edge {u, v} and returns whether it was present.
         constexpr bool remove_edge(node_t u, node_t v) noexcept {
-            assert(u < n);
-            assert(v < n);
+            assert(u < n_);
+            assert(v < n_);
             assert(LOOPS_ALLOWED || u != v);
             const auto prev1 = BitSpan(storage.row(u)).unset_bit(v);
             const auto prev2 = BitSpan(storage.row(v)).unset_bit(u);

@@ -85,7 +85,7 @@ TYPED_TEST(RefinementTests, CycleKeepsSymmetricNodesInOneColorClass) {
 
     TypeParam::refine(graph, coloring);
 
-    for (smallcanon::node_t u = 0; u < 4; ++u) {
+    for (const auto u: graph.nodes()) {
         EXPECT_EQ(coloring.get_color(u), 0) << "node " << u;
     }
 }
