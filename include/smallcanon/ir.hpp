@@ -1,0 +1,107 @@
+#pragma once
+
+#include <algorithm>
+#include <vector>
+
+#include "smallcanon/adj_matrix.hpp"
+#include "smallcanon/coloring.hpp"
+#include "smallcanon/permutation.hpp"
+#include "smallcanon/refine/individualize.hpp"
+#include "smallcanon/selector.hpp"
+#include "smallcanon/refine/naive.hpp"
+
+namespace smallcanon {
+    namespace solver {
+
+        template<typename SM, typename SC>
+        Permutation canonize(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
+
+            // initial color refinement
+            refine::naive_scalar(graph, coloring);
+
+            // depth-first search
+            bool         has_best_leaf;
+            Coloring<SC> best_leaf;
+
+            bool         has_comp_leaf;
+            Coloring<SC> comp_leaf;
+
+            // TODO: two orbit partitions
+
+            std::vector<uint32_t>     base_to_best_leaf_inv;
+
+            std::vector<Coloring<SC>> base_to_coloring;
+            std::vector<node_t>       base_to_vertex;
+            std::vector<color_t>      base_to_col;
+            std::vector<color_t>      base_to_inv;
+
+            // TODO save last place in-common with "best-leaf-path"
+            // TODO so that we can jump there immediately when leaf matches best-leaf
+
+            bool is_backtrack = false;
+            while(true) {
+
+                // if we're not coming from a backtrack, select new color and put it on stack
+                if(!is_backtrack) {
+                    auto [col, discrete] = selector::select_first(graph, coloring);
+
+                    if(discrete) {
+                        if(!has_best_leaf) {
+                            // TODO
+                            has_best_leaf = true;
+                        }
+
+                        if(!has_comp_leaf) {
+                            // TODO
+                            has_comp_leaf = true;
+                        }
+
+                        // TODO we found a leaf
+                        // TODO compare to best leaf / comp leaf, potentially update
+                        // TODO maintain orbit partition by creating automorphisms from leaf
+                        if(base_to_coloring.empty()) break;
+                        coloring = base_to_coloring.back();
+                        is_backtrack = true; // moving backward
+                        continue;
+                    }
+
+                    base_to_coloring.push_back(coloring);
+                    base_to_vertex.push_back(0);
+                    base_to_col.push_back(col);
+                }
+
+                // continue iterating vertices of present color on stack
+                // TODO add orbit-partition-based automorphism pruning here
+                while(base_to_vertex.back() < graph.num_nodes() && 
+                      coloring.get_color(base_to_vertex.back()) != base_to_col.back()) {
+                    ++base_to_vertex.back();
+                }
+
+                // no more vertex left to individualize? we need to backtrack
+                if(base_to_vertex.back() == graph.num_nodes()) {
+                    base_to_coloring.pop_back();
+                    base_to_vertex.pop_back();
+                    base_to_col.pop_back();
+
+                    if(base_to_coloring.empty()) break;
+                    coloring = base_to_coloring.back();
+                    is_backtrack = true; // moving backward
+                    continue;
+                }
+
+                // time to actually do some work now
+                coloring = base_to_coloring.back();
+                refine::individualize(coloring, base_to_vertex.back());
+                refine::naive_scalar(graph, coloring); // TODO needs to take as argument a vertex
+                ++base_to_vertex.back();
+                is_backtrack = false; // we're moving forward in the tree
+
+                // TODO compare invariant
+            }
+        }
+
+        Permutation canonical_labeling;
+        // TODO create canonical labeling from best leaf
+        return canonical_labeling;
+    }
+}
