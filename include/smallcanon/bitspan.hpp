@@ -13,7 +13,7 @@
 namespace smallcanon {
     // iterates over all bits that are set in v
     template<std::unsigned_integral T>
-    std::generator<int> iterate_set_bits(T v) noexcept {
+    std::generator<int> iterate_set_bits(T v) {
         while (v) {
             const auto pos = std::countr_zero(v);
             v &= v - 1; // remove least significant one

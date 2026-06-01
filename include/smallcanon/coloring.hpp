@@ -119,7 +119,7 @@ namespace smallcanon {
             constexpr explicit FixedColorStore() = default;
 
             /// Compatibility with Heap Storage constructor
-            constexpr explicit FixedColorStore(node_t capacity) {
+            constexpr explicit FixedColorStore([[maybe_unused]] node_t capacity) {
                 assert(capacity <= Capacity);
             }
 

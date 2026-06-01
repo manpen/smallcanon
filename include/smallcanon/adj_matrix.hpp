@@ -121,7 +121,7 @@ namespace smallcanon {
             assert(v < n_);
             assert(LOOPS_ALLOWED || u != v);
             const auto prev1 = BitSpan(storage.row(u)).set_bit(v);
-            const auto prev2 = BitSpan(storage.row(v)).set_bit(u);
+            [[maybe_unused]] const auto prev2 = BitSpan(storage.row(v)).set_bit(u);
             assert(prev1 == prev2 || (LOOPS_ALLOWED && u == v));
             return prev1;
         }
@@ -236,7 +236,7 @@ namespace smallcanon {
             FixedStorage() = default;
 
             /// Constructs a Fixed Storage
-            explicit constexpr FixedStorage(node_t n) noexcept {
+            explicit constexpr FixedStorage([[maybe_unused]] node_t n) noexcept {
                 assert(n <= Capacity);
             }
 
