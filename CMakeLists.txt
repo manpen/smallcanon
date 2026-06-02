@@ -15,6 +15,8 @@ if (SMALLCANON_CLANG_TIDY)
     set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--extra-arg=-Wno-unknown-warning-option")
 endif ()
 
+find_package(xsimd REQUIRED CONFIG)
+
 add_library(smallcanon INTERFACE
         include/smallcanon/adj_matrix.hpp
         include/smallcanon/bitspan.hpp
@@ -31,6 +33,8 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+
+target_link_libraries(smallcanon INTERFACE xsimd)
 
 target_compile_options(
         smallcanon
