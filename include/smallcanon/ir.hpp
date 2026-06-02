@@ -15,7 +15,7 @@ namespace smallcanon {
     namespace solver {
 
         template<typename SM, typename SC>
-        Permutation canonize(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
+        void canonize(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
 
             // initial color refinement
             refine::naive_scalar(graph, coloring);
@@ -24,8 +24,9 @@ namespace smallcanon {
             bool         has_best_leaf;
             Coloring<SC> best_leaf;
 
-            bool         has_comp_leaf;
-            Coloring<SC> comp_leaf;
+            constexpr size_t NUM_COMP_LEAFS = 1;
+            bool         has_comp_leaf[NUM_COMP_LEAFS];
+            Coloring<SC> comp_leaf[NUM_COMP_LEAFS];
 
             Orbits best_leaf_orbits(graph.num_nodes());
             
@@ -61,10 +62,14 @@ namespace smallcanon {
                             best_leaf_orbits.clear();
                             has_best_leaf = true;
                         }
-
-                        if(!has_comp_leaf) {
-                            // TODO
-                            has_comp_leaf = true;
+                        
+                        // TODO if this doesn't agree with any already-stored leaf, then...
+                        for(size_t i = 0; i < NUM_COMP_LEAFS; ++i) {
+                            if(!has_comp_leaf[i]) {
+                                // TODO
+                                has_comp_leaf[i] = true;
+                                break;
+                            }
                         }
 
                         // TODO we found a leaf
@@ -73,6 +78,7 @@ namespace smallcanon {
 
                         // TODO leaf agrees with best-leaf? jump to best-leaf LCA
                         // TODO leaf agrees with comp-leaf? jump to comp-leaf LCA
+                        // TODO jumping to an LCA must purge all "deeper" leafs
 
                         if(base_to_coloring.empty()) break;
                         coloring = base_to_coloring.back();

@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <cassert>
 #include "smallcanon/graph.hpp"
 
 
@@ -21,6 +22,7 @@ namespace smallcanon {
             }
 
             node_t get_representative(node_t v) {
+                assert(v < partition.size());
                 node_t repr = v;
                 while(repr != partition[repr]) repr = partition[repr];
                 partition[v] = repr;
@@ -29,10 +31,13 @@ namespace smallcanon {
 
 
             bool is_representative(node_t v) {
+                assert(v < partition.size());
                 return v == get_representative(v);
             }
 
             void union_orbits(node_t v1, node_t v2) {
+                assert(v1 < partition.size());
+                assert(v2 < partition.size());
                 const node_t repr1 = get_representative(v1);
                 const node_t repr2 = get_representative(v2);
                 if(repr1 < repr2) {
