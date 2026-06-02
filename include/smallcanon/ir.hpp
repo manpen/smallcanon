@@ -70,7 +70,10 @@ namespace smallcanon {
                         // TODO we found a leaf
                         // TODO compare to best leaf / comp leaf, potentially update
                         // TODO maintain orbit partition by creating automorphisms from leaf
-                        
+
+                        // TODO leaf agrees with best-leaf? jump to best-leaf LCA
+                        // TODO leaf agrees with comp-leaf? jump to comp-leaf LCA
+
                         if(base_to_coloring.empty()) break;
                         coloring = base_to_coloring.back();
                         is_backtrack = true; // moving backward

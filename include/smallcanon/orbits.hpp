@@ -1,14 +1,9 @@
 #pragma once
 
-#include <algorithm>
 #include <vector>
+#include <algorithm>
+#include "smallcanon/graph.hpp"
 
-#include "smallcanon/adj_matrix.hpp"
-#include "smallcanon/coloring.hpp"
-#include "smallcanon/permutation.hpp"
-#include "smallcanon/refine/individualize.hpp"
-#include "smallcanon/selector.hpp"
-#include "smallcanon/refine/naive.hpp"
 
 namespace smallcanon {
     namespace solver {
