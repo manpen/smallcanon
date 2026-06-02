@@ -55,7 +55,7 @@ namespace smallcanon {
 
                     if(discrete) {
                         if(!has_best_leaf) { // TODO OR we're updating the leaf
-                            // TODO
+                            // TODO set best_leaf_lca to parent
 
                             // our best leaf orbits have become invalid
                             best_leaf_orbits.clear();
@@ -94,6 +94,8 @@ namespace smallcanon {
 
                 // no more vertex left to individualize? we need to backtrack
                 if(base_to_vertex.back() == graph.num_nodes()) {
+                    // TODO if we're backtracking from the best-leaf LCA, decrement it
+                    
                     base_to_coloring.pop_back();
                     base_to_vertex.pop_back();
                     base_to_col.pop_back();
