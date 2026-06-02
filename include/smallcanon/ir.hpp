@@ -16,6 +16,7 @@ namespace smallcanon {
 
         template<typename SM, typename SC>
         void canonize(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
+            // TODO add "configuration/result" information
 
             // initial color refinement
             refine::naive_scalar(graph, coloring);
@@ -121,10 +122,8 @@ namespace smallcanon {
 
                 // TODO compare invariant
             }
+            // TODO create canonical labeling from best leaf
+            return;
         }
-
-        Permutation canonical_labeling;
-        // TODO create canonical labeling from best leaf
-        return canonical_labeling;
     }
 }
