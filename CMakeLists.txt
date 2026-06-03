@@ -62,6 +62,7 @@ endif ()
 
 option(TESTS "Build smallcanon tests" OFF)
 option(INDIV_TESTS "Build many small test executables" OFF)
+option(BENCHMARKS "Build smallcanon benchmarks" OFF)
 
 if (TESTS)
     include(CTest)
@@ -76,4 +77,18 @@ if (TESTS)
     FetchContent_MakeAvailable(googletest)
 
     add_subdirectory(tests)
+endif ()
+
+if (BENCHMARKS)
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+            googlebenchmark
+            GIT_REPOSITORY https://github.com/google/benchmark.git
+            GIT_TAG v1.9.1
+            GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(googlebenchmark)
+
+    add_subdirectory(benchmarks)
 endif ()

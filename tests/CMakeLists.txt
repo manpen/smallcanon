@@ -48,3 +48,4 @@ else()
 
     gtest_discover_tests(smallcanon_test)
 endif()
+
