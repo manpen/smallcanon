@@ -1,7 +1,7 @@
 #pragma once
 
-#include <xsimd/xsimd.hpp>
 #include <smallcanon/simd/sort_single_batch.hpp>
+#include <xsimd/xsimd.hpp>
 
 namespace smallcanon::simd::sort {
     namespace sort_details {
@@ -18,32 +18,26 @@ namespace smallcanon::simd::sort {
             return {span.template subspan<0, kVectors / 2>(), span.template subspan<kVectors / 2, kVectors / 2>()};
         }
 
-        template<std::unsigned_integral T, size_t Stride, size_t Lanes>
-        consteval std::pair<std::array<T, Lanes>, uint64_t>
-        compute_merge_swizzle() {
-            static_assert(Lanes < 64); // blendmask only supports 64bits
-
-            std::array<T, Lanes> swizzle;
-            uint64_t blend = 0;
-
-            constexpr T mask = Stride;
-
-            // produce identity map
-            for (size_t i = 0; i < Lanes; ++i) {
-                swizzle[i] = static_cast<T>(i ^ mask);
-                blend |= static_cast<uint64_t>(i > (i ^ mask)) << i;
-            }
-
-            return {swizzle, blend};
-        }
-
         template<bool kAscending, size_t Stride, std::unsigned_integral T, typename A>
         auto merge_layer_batch(xs::batch<T, A> batch) {
-            alignas(A::alignment()) //
-                constexpr auto swizzle_blend = compute_merge_swizzle<T, Stride, decltype(batch)::size>();
+            struct BlendConstant
+            {
+                static constexpr bool get(unsigned i, unsigned)
+                {
+                    return i > (i ^ Stride);
+                }
+            };
 
-            const auto swizzle_indices = decltype(batch)::load_aligned(swizzle_blend.first.data());
-            const auto blend_mask = xs::batch_bool<T, A>::from_mask(swizzle_blend.second);
+            struct SwizzleConstant
+            {
+                static constexpr unsigned get(unsigned i, unsigned)
+                {
+                    return (i ^ Stride);
+                }
+            };
+
+            constexpr auto swizzle_indices = xsimd::make_batch_constant<T, SwizzleConstant, A>();
+            constexpr auto blend_mask = xsimd::make_batch_bool_constant<T, BlendConstant, A>();
 
             auto swizzled = xs::swizzle(batch, swizzle_indices);
             const auto minv = xs::min(batch, swizzled);
@@ -57,8 +51,6 @@ namespace smallcanon::simd::sort {
 
             return batch;
         }
-
-
 
         template<bool kAscending, std::unsigned_integral T, typename A>
         auto merge_single_batch(xs::batch<T, A> batch) {
@@ -123,9 +115,22 @@ namespace smallcanon::simd::sort {
         }
     } // namespace sort_details
 
+
+    template<bool kAscending = true, size_t Vectors, std::unsigned_integral T, typename A = xsimd::default_arch>
+    void sort(std::span<xsimd::batch<T, A>, Vectors>& span) {
+        if constexpr (Vectors == 1) {
+            constexpr size_t kLanes = decltype(span[0])::size;
+            span[0] = sort_details::sort_single_batch<kLanes, T, kAscending, A>(span[0]);
+        } else {
+            sort_details::sort_vecs<kAscending, Vectors, T, A>(span);
+        }
+    }
+
     // N has to be a power of two
-    template<size_t N, std::unsigned_integral T, bool kAscending = true, typename A = xsimd::default_arch>
-    auto sort(T *data) {
+    // This function will always sort one complete SIMD batch. If N*sizeof(T) is smaller than the register
+    // blocks of N elements are sorted individually.
+    template<size_t N, bool kAscending = true, std::unsigned_integral T, typename A = xsimd::default_arch>
+    void sort(T *data) {
         static_assert(std::has_single_bit(N));
 
         using batch_t = xsimd::batch<T, A>;
@@ -137,17 +142,16 @@ namespace smallcanon::simd::sort {
             vecs[i] = batch_t::load_unaligned(data + i * kLanes);
         }
 
+        std::span<batch_t, kVectors> span(vecs);
+
         if constexpr (kVectors == 1) {
             vecs[0] = sort_details::sort_single_batch<N, T, kAscending, A>(vecs[0]);
         } else {
-            std::span<batch_t, kVectors> span(vecs);
             sort_details::sort_vecs<kAscending, kVectors, T, A>(span);
         }
 
         for (size_t i = 0; i < kVectors; ++i) {
             vecs[i].store_unaligned(data + i * kLanes);
         }
-
-        return data;
     }
 } // namespace smallcanon::simd::sort

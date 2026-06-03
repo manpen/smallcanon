@@ -63,7 +63,7 @@ void test_pattern(uint64_t pattern) {
         data[i] = static_cast<T>((pattern >> (i % NumItems)) & 1); // 1 iff the i-th bit is set
     }
 
-    smallcanon::simd::sort::sort<NumItems, T, kAscending, A>(data.data());
+    smallcanon::simd::sort::sort<NumItems, kAscending, T, A>(data.data());
 
     const size_t num_ones = static_cast<size_t>(std::popcount(pattern));
     const size_t num_zeros = NumItems - num_ones;
