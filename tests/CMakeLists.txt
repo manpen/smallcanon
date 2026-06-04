@@ -7,6 +7,7 @@ SET(SMALL_CANON_TESTS
         coloring
         parser
         refine
+        simd_sort
 )
 
 function(add_smallcanon_test name)
@@ -47,3 +48,4 @@ else()
 
     gtest_discover_tests(smallcanon_test)
 endif()
+

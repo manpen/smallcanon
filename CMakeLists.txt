@@ -15,6 +15,20 @@ if (SMALLCANON_CLANG_TIDY)
     set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--extra-arg=-Wno-unknown-warning-option")
 endif ()
 
+include(FetchContent)
+
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(XSIMD_SKIP_INSTALL ON CACHE BOOL "" FORCE)
+FetchContent_Declare(
+        xsimd
+        GIT_REPOSITORY https://github.com/xtensor-stack/xsimd.git
+        GIT_TAG 14.2.0
+        GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(xsimd)
+
 add_library(smallcanon INTERFACE
         include/smallcanon/adj_matrix.hpp
         include/smallcanon/bitspan.hpp
@@ -32,6 +46,8 @@ target_include_directories(
         $<INSTALL_INTERFACE:include>
 )
 
+target_link_libraries(smallcanon INTERFACE xsimd)
+
 target_compile_options(
         smallcanon
         INTERFACE
@@ -45,11 +61,11 @@ endif ()
 
 option(TESTS "Build smallcanon tests" OFF)
 option(INDIV_TESTS "Build many small test executables" OFF)
+option(BENCHMARKS "Build smallcanon benchmarks" OFF)
 
 if (TESTS)
     include(CTest)
 
-    include(FetchContent)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_Declare(
             googletest
@@ -60,4 +76,18 @@ if (TESTS)
     FetchContent_MakeAvailable(googletest)
 
     add_subdirectory(tests)
+endif ()
+
+if (BENCHMARKS)
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+            googlebenchmark
+            GIT_REPOSITORY https://github.com/google/benchmark.git
+            GIT_TAG v1.9.1
+            GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(googlebenchmark)
+
+    add_subdirectory(benchmarks)
 endif ()
