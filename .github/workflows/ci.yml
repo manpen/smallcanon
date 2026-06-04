@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    name: ${{ matrix.compiler.name }} ${{ matrix.arch.name }} release tests
+    runs-on: self-hosted
+    container:
+      image: debian:13
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - name: gcc
+            cc: gcc-14
+            cxx: g++-14
+            packages: gcc g++
+          - name: clang
+            cc: clang-19
+            cxx: clang++-19
+            packages: clang-19
+        arch:
+          - name: native
+            flags: -march=native
+          - name: avx2 only
+            flags: -mavx2 -mlzcnt -mpopcnt -mbmi -mbmi2 -mno-avx512f -mno-avx512bw -mno-avx512dq -mno-avx512vl -mno-avx512cd
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y cmake ninja-build git ${{ matrix.compiler.packages }}
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }}
+          -DCMAKE_C_FLAGS="${{ matrix.arch.flags }}"
+          -DCMAKE_CXX_FLAGS="${{ matrix.arch.flags }}"
+          -DTESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+  format:
+    name: clang-format
+    runs-on: self-hosted
+    container:
+      image: debian:13
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          apt-get update
+          apt-get install -y clang-format-19
+
+      - name: Check formatting
+        run: |
+          git ls-files -z \
+            '*.c' '*.cc' '*.cpp' '*.cxx' \
+            '*.h' '*.hh' '*.hpp' '*.hxx' \
+          | xargs -0 -r clang-format --dry-run --Werror

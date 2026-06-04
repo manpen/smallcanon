@@ -52,8 +52,7 @@ target_compile_options(
         smallcanon
         INTERFACE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX /permissive- /Zc:preprocessor>
-        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wformat=2>
-        $<$<CXX_COMPILER_ID:GNU>:-Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wuseless-cast>
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall>
 )
 
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/CMakeLists.txt")

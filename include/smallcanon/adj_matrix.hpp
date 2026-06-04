@@ -12,9 +12,6 @@
 #include <smallcanon/bitspan.hpp>
 #include <smallcanon/graph.hpp>
 
-#include "adj_matrix.hpp"
-
-
 namespace smallcanon {
     /// AdjMatrix implements an adjacency matrix based on an external storage type.
     /// We are generic over the storage type to allow both stack- and heap-based allocations.

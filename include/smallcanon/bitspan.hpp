@@ -5,7 +5,6 @@
 #include <concepts>
 #include <cstddef>
 #include <generator>
-#include <ranges>
 #include <span>
 #include <type_traits>
 #include <utility>
