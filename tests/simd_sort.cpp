@@ -19,6 +19,17 @@ namespace {
 
     // TODO: Add uint8_t!!
     using SimdSortTypes = testing::Types<
+#if XSIMD_WITH_AVX512F
+            // AVX512 (to ensure architecture is properly handled)
+            SimdSortTestCases<32, uint16_t, true, xsimd::avx512f>, //
+            SimdSortTestCases<16, uint32_t, true, xsimd::avx512f>, //
+            SimdSortTestCases<8, uint64_t, true, xsimd::avx512f>, //
+
+            // multi register test
+            SimdSortTestCases<64, uint64_t, true, xsimd::avx512f>, //
+            SimdSortTestCases<64, uint64_t, false, xsimd::avx512f>, //
+#endif
+
             // AVX2 Ascending
             SimdSortTestCases<16, uint16_t, true, xsimd::avx2>, //
             SimdSortTestCases<8, uint16_t, true, xsimd::avx2>, //
@@ -39,16 +50,9 @@ namespace {
             SimdSortTestCases<4, uint64_t, false, xsimd::avx2>, //
             SimdSortTestCases<2, uint64_t, false, xsimd::avx2>, //
 
-            // AVX512 (to ensure architecture is properly handled)
-            SimdSortTestCases<32, uint16_t, true, xsimd::avx512f>, //
-            SimdSortTestCases<16, uint32_t, true, xsimd::avx512f>, //
-            SimdSortTestCases<8, uint64_t, true, xsimd::avx512f>, //
-
             // multi-register
             SimdSortTestCases<64, uint64_t, true, xsimd::avx2>, //
-            SimdSortTestCases<64, uint64_t, false, xsimd::avx2>, //
-            SimdSortTestCases<64, uint64_t, true, xsimd::avx512f>, //
-            SimdSortTestCases<64, uint64_t, false, xsimd::avx512f>>;
+            SimdSortTestCases<64, uint64_t, false, xsimd::avx2>>;
     TYPED_TEST_SUITE(SimdSortTests, SimdSortTypes);
 } // namespace
 
