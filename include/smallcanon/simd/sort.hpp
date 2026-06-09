@@ -20,18 +20,14 @@ namespace smallcanon::simd::sort {
 
         template<bool kAscending, size_t Stride, std::unsigned_integral T, typename A>
         auto merge_layer_batch(xs::batch<T, A> batch) {
-            struct BlendConstant
-            {
-                static constexpr bool get(unsigned i, unsigned)
-                {
+            struct BlendConstant {
+                static constexpr bool get(unsigned i, unsigned) {
                     return i > (i ^ Stride);
                 }
             };
 
-            struct SwizzleConstant
-            {
-                static constexpr unsigned get(unsigned i, unsigned)
-                {
+            struct SwizzleConstant {
+                static constexpr unsigned get(unsigned i, unsigned) {
                     return (i ^ Stride);
                 }
             };

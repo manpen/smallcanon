@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <algorithm>
 #include <cassert>
+#include <vector>
 #include "smallcanon/graph.hpp"
 
 
@@ -11,7 +11,7 @@ namespace smallcanon {
         class Orbits {
             std::vector<node_t> partition;
 
-            public:
+        public:
             void clear() {
                 std::ranges::iota(partition.begin(), partition.end(), 0);
             }
@@ -24,7 +24,8 @@ namespace smallcanon {
             node_t get_representative(node_t v) {
                 assert(v < partition.size());
                 node_t repr = v;
-                while(repr != partition[repr]) repr = partition[repr];
+                while (repr != partition[repr])
+                    repr = partition[repr];
                 partition[v] = repr;
                 return repr;
             }
@@ -40,12 +41,12 @@ namespace smallcanon {
                 assert(v2 < partition.size());
                 const node_t repr1 = get_representative(v1);
                 const node_t repr2 = get_representative(v2);
-                if(repr1 < repr2) {
+                if (repr1 < repr2) {
                     partition[repr2] = repr1;
                 } else {
                     partition[repr1] = repr2;
                 }
             }
         };
-    }
-}
+    } // namespace solver
+} // namespace smallcanon

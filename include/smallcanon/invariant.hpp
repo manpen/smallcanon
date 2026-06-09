@@ -4,6 +4,5 @@
 
 namespace smallcanon {
     typedef uint32_t inv_t;
-    namespace invariant {
-    }
-}
+    namespace invariant {}
+} // namespace smallcanon

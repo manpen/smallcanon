@@ -11,7 +11,5 @@
 namespace smallcanon {
 
     // a permutation of nodes
-    class Permutation {
-
-    };
-}
+    class Permutation {};
+} // namespace smallcanon

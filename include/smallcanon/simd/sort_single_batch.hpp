@@ -50,7 +50,7 @@ namespace smallcanon::simd::sort::sort_details {
     /// Sorts an SIMD batch of type T. NumItems has to be a power-of-two and at most the number of items in the batch.
     /// If NumItems is smaller, multiple consecutive groups NumItems of items are sorted independently.
     template<size_t NumItems, typename T, bool kAscending = true, typename A = xsimd::default_arch>
-    xs::batch<T, A> sort_single_batch(xsimd::batch<T, A> values) {
+    inline __attribute__((always_inline)) xs::batch<T, A> sort_single_batch(xsimd::batch<T, A> values) {
         using batch_t = decltype(values);
         constexpr size_t kLanes = batch_t::size;
 
