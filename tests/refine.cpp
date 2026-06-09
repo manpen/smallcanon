@@ -9,24 +9,67 @@
 #include <tuple>
 #include <vector>
 
+#include <xsimd/xsimd.hpp>
 #include "smallcanon/parser.hpp"
 
+#include "smallcanon/refine/avx512_instrinsics.hpp"
+
 namespace {
-    struct NaiveScalarRefinement {
+    struct RefinementNaiveScale {
         [[maybe_unused]]
-        static constexpr std::string_view name = "naive_scalar";
+        static constexpr std::string_view name = "naive";
 
         template<typename SM, typename SC>
         static void refine(const smallcanon::AdjMatrix<SM>& graph, smallcanon::Coloring<SC>& coloring) {
-            smallcanon::refine::naive_scalar(graph, coloring);
+            smallcanon::refine::naive::refine(graph, coloring);
         }
     };
 
-    template<typename T>
-    class RefinementTests : public testing::Test {};
+#if XSIMD_WITH_AVX512F
+    struct RefinementAVX512Intrinsics {
+        [[maybe_unused]]
+        static constexpr std::string_view name = "avx512intrin";
 
-    using RefinementImplementations = testing::Types<NaiveScalarRefinement>;
-    TYPED_TEST_SUITE(RefinementTests, RefinementImplementations);
+        template<typename SM, typename SC>
+        static void refine(const smallcanon::AdjMatrix<SM>& graph, smallcanon::Coloring<SC>& coloring) {
+            smallcanon::refine::avx512intrin::refine(graph, coloring);
+        }
+    };
+#endif
+
+
+    template<typename Refinement, typename Graph>
+    struct RefinementTestConfig {
+        using refinement_t = Refinement;
+        using graph_t = Graph;
+        using coloring_t = typename smallcanon::MatchedColoring<graph_t>::coloring_t;
+    };
+
+    template<typename T>
+    class RefinementTests : public testing::Test {
+    protected:
+        using refinement_t = typename T::refinement_t;
+        using graph_t = typename T::graph_t;
+        using coloring_t = typename T::coloring_t;
+
+        static graph_t make_graph(smallcanon::node_t num_nodes) {
+            return graph_t(num_nodes);
+        }
+
+        static graph_t make_graph(smallcanon::node_t num_nodes, const std::vector<smallcanon::edge_t>& edges) {
+            graph_t graph(num_nodes);
+            graph.add_edges(edges);
+            return graph;
+        }
+    };
+
+    using RefinementTestTypes =
+            testing::Types<RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix8>,
+                           RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix16>,
+                           RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix32>,
+                           RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrixHeap>,
+                           RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix8>>;
+    TYPED_TEST_SUITE(RefinementTests, RefinementTestTypes);
 
     template<typename SC>
     std::vector<smallcanon::color_t> collect_colors(const smallcanon::Coloring<SC>& coloring,
@@ -41,10 +84,10 @@ namespace {
 } // namespace
 
 TYPED_TEST(RefinementTests, EmptyGraphKeepsAllNodesInOneColorClass) {
-    const auto graph = smallcanon::make_adj_matrix8();
-    smallcanon::Coloring8 coloring(graph.num_nodes());
+    const auto graph = TestFixture::make_graph(8);
+    typename TestFixture::coloring_t coloring(graph.num_nodes());
 
-    TypeParam::refine(graph, coloring);
+    TestFixture::refinement_t::refine(graph, coloring);
 
     for (smallcanon::node_t u = 0; u < graph.num_nodes(); ++u) {
         EXPECT_EQ(coloring.get_color(u), 0) << "node " << u;
@@ -53,10 +96,10 @@ TYPED_TEST(RefinementTests, EmptyGraphKeepsAllNodesInOneColorClass) {
 
 TYPED_TEST(RefinementTests, PathFourSeparatesEndpointsFromMiddleNodes) {
     const std::vector<smallcanon::edge_t> edges{{0, 1}, {1, 2}, {2, 3}};
-    const auto graph = smallcanon::make_adj_matrix8(4, edges);
-    smallcanon::Coloring8 coloring(graph.num_nodes());
+    const auto graph = TestFixture::make_graph(4, edges);
+    typename TestFixture::coloring_t coloring(graph.num_nodes());
 
-    TypeParam::refine(graph, coloring);
+    TestFixture::refinement_t::refine(graph, coloring);
 
     EXPECT_EQ(coloring.get_color(0), coloring.get_color(3));
     EXPECT_EQ(coloring.get_color(1), coloring.get_color(2));
@@ -65,10 +108,10 @@ TYPED_TEST(RefinementTests, PathFourSeparatesEndpointsFromMiddleNodes) {
 
 TYPED_TEST(RefinementTests, StarSeparatesCenterFromLeaves) {
     const std::vector<smallcanon::edge_t> edges{{0, 1}, {0, 2}, {0, 3}, {0, 4}};
-    const auto graph = smallcanon::make_adj_matrix8(5, edges);
-    smallcanon::Coloring8 coloring(graph.num_nodes());
+    const auto graph = TestFixture::make_graph(5, edges);
+    typename TestFixture::coloring_t coloring(graph.num_nodes());
 
-    TypeParam::refine(graph, coloring);
+    TestFixture::refinement_t::refine(graph, coloring);
 
     // we expect refinement to smallest possible colors; hence, for the star colors 0, 1
     const smallcanon::color_t leaf_color = (coloring.get_color(0) == 0) ? 1 : 0;
@@ -80,10 +123,10 @@ TYPED_TEST(RefinementTests, StarSeparatesCenterFromLeaves) {
 
 TYPED_TEST(RefinementTests, CycleKeepsSymmetricNodesInOneColorClass) {
     const std::vector<smallcanon::edge_t> edges{{0, 1}, {1, 2}, {2, 3}, {3, 0}};
-    const auto graph = smallcanon::make_adj_matrix8(4, edges);
-    smallcanon::Coloring8 coloring(graph.num_nodes());
+    const auto graph = TestFixture::make_graph(4, edges);
+    typename TestFixture::coloring_t coloring(graph.num_nodes());
 
-    TypeParam::refine(graph, coloring);
+    TestFixture::refinement_t::refine(graph, coloring);
 
     for (const auto u: graph.nodes()) {
         EXPECT_EQ(coloring.get_color(u), 0) << "node " << u;
@@ -91,11 +134,11 @@ TYPED_TEST(RefinementTests, CycleKeepsSymmetricNodesInOneColorClass) {
 }
 
 TYPED_TEST(RefinementTests, InitialColorsArePartOfTheFingerprint) {
-    const auto graph = smallcanon::make_adj_matrix8(2);
-    smallcanon::Coloring8 coloring(graph.num_nodes());
+    const auto graph = TestFixture::make_graph(2);
+    typename TestFixture::coloring_t coloring(graph.num_nodes());
     coloring.set_color(0, 1);
 
-    TypeParam::refine(graph, coloring);
+    TestFixture::refinement_t::refine(graph, coloring);
 
     EXPECT_EQ(coloring.get_color(0), 1);
     for (smallcanon::node_t u = 1; u < graph.num_nodes(); ++u) {
@@ -104,24 +147,13 @@ TYPED_TEST(RefinementTests, InitialColorsArePartOfTheFingerprint) {
 }
 
 TYPED_TEST(RefinementTests, DefaultNodeCount) {
-    const auto graph = smallcanon::make_adj_matrix128();
-    smallcanon::Coloring128 coloring(graph.num_nodes());
+    const auto graph = TestFixture::make_graph(8);
+    typename TestFixture::coloring_t coloring(graph.num_nodes());
 
-    TypeParam::refine(graph, coloring);
+    TestFixture::refinement_t::refine(graph, coloring);
 
     EXPECT_EQ(collect_colors(coloring, graph.num_nodes()), std::vector<smallcanon::color_t>(graph.num_nodes(), 0));
 }
-
-TYPED_TEST(RefinementTests, SupportsHeapBackedGraphAndColoring) {
-    const std::vector<smallcanon::edge_t> edges{{0, 1}, {1, 2}, {2, 3}};
-    const auto graph = smallcanon::make_adjmatrix_heap(4, edges);
-    smallcanon::ColoringHeap coloring(graph.num_nodes());
-
-    TypeParam::refine(graph, coloring);
-
-    EXPECT_EQ(collect_colors(coloring, 4), (std::vector<smallcanon::color_t>{0, 1, 1, 0}));
-}
-
 
 template<typename SM, typename SC>
 std::tuple<smallcanon::AdjMatrix<SM>, smallcanon::Coloring<SC>, std::vector<smallcanon::node_t>>
@@ -144,26 +176,29 @@ permute_graph(auto&& rng, const smallcanon::AdjMatrix<SM>& graph, const smallcan
 }
 
 TYPED_TEST(RefinementTests, InvarianceNodePermutation) {
+    using graph_t = typename TestFixture::graph_t;
     const auto dataset_path = std::filesystem::path(SMALLCANON_PROJECT_ROOT) / "datasets" / "curated.g6";
     std::ifstream curated(dataset_path);
 
     std::mt19937_64 rng(123456);
 
-    for (auto [name, var_graph]: smallcanon::read_graph_dataset(curated) | std::views::take(5000)) {
+    for (auto [name, var_graph]: smallcanon::read_graph_dataset(curated)) {
         std::visit(
                 [&](auto&& graph) {
-                    auto coloring = smallcanon::ColoringHeap(graph.num_nodes());
-                    auto [mapped_graph, mapped_coloring, mapping] = permute_graph(rng, graph, coloring);
+                    if constexpr (std::is_same_v<std::decay_t<decltype(graph)>, graph_t>) {
+                        typename TestFixture::coloring_t coloring(graph.num_nodes());
+                        auto [mapped_graph, mapped_coloring, mapping] = permute_graph(rng, graph, coloring);
 
-                    TypeParam::refine(graph, coloring);
-                    TypeParam::refine(mapped_graph, mapped_coloring);
+                        TestFixture::refinement_t::refine(graph, coloring);
+                        TestFixture::refinement_t::refine(mapped_graph, mapped_coloring);
 
-                    auto mapped_back = mapped_coloring.copy();
-                    for (auto org: graph.nodes()) {
-                        mapped_back.set_color(org, mapped_coloring.get_color(mapping[org]));
+                        auto mapped_back = mapped_coloring.copy();
+                        for (auto org: graph.nodes()) {
+                            mapped_back.set_color(org, mapped_coloring.get_color(mapping[org]));
+                        }
+
+                        ASSERT_EQ(coloring, mapped_back);
                     }
-
-                    ASSERT_EQ(coloring, mapped_back);
                 },
                 var_graph);
     }
