@@ -3,42 +3,61 @@
 namespace smallcanon::simd::sort::sort_details {
     namespace xs = xsimd;
 
-    template<std::unsigned_integral T, size_t NumItems, size_t Lanes>
-    consteval std::pair<std::array<T, Lanes>, uint64_t>
-    compute_swizzle(std::initializer_list<std::pair<size_t, size_t>> list) {
-        static_assert(Lanes < 64); // blendmask only supports 64bits
 
-        std::array<T, Lanes> swizzle;
-        uint64_t blend = 0;
+    template<std::unsigned_integral T, typename A, size_t NumItems>
+    consteval std::array<T, xs::batch<T, A>::size>
+    compute_swizzle_array(std::initializer_list<std::pair<size_t, size_t>> list) {
+        constexpr size_t kLanes = xs::batch<T, A>::size;
+        static_assert(kLanes < 64); // blendmask only supports 64bits
+        static_assert(std::has_single_bit(NumItems));
+
+        std::array<T, kLanes> swizzle;
 
         // produce identity map
-        for (size_t i = 0; i < Lanes; ++i) {
+        for (size_t i = 0; i < kLanes; ++i) {
             swizzle[i] = static_cast<T>(i);
         }
 
         // add swaps
         for (auto [x, y]: list) {
-            for (size_t base = 0; base < Lanes; base += NumItems) {
+            for (size_t base = 0; base < kLanes; base += NumItems) {
                 swizzle[x + base] = static_cast<T>(y + base);
                 swizzle[y + base] = static_cast<T>(x + base);
+            }
+        }
 
+        return swizzle;
+    }
+
+    template<typename T, typename A, auto Arr, std::size_t... I>
+    consteval auto array_to_batch_constant(std::index_sequence<I...>) {
+        return xs::batch_constant<T, A, Arr[I]...>{};
+    }
+
+    template<size_t NumItems, size_t NumLanes>
+    consteval uint64_t compute_max_element_mask(std::initializer_list<std::pair<size_t, size_t>> list) {
+        uint64_t blend = 0;
+
+        // add swaps
+        for (auto [_, y]: list) {
+            for (size_t base = 0; base < NumLanes; base += NumItems) {
                 blend |= static_cast<uint64_t>(1) << (y + base);
             }
         }
 
-        return {swizzle, blend};
+        return blend;
     }
 
 #define COMPARE_LAYER(values, ...)                                                                                     \
     {                                                                                                                  \
-        alignas(A::alignment()) constexpr auto swizzle_blend = compute_swizzle<T, NumItems, kLanes>({__VA_ARGS__});    \
-        const auto swizzle_indices = decltype(values)::load_aligned(swizzle_blend.first.data());                       \
-        const auto blend_mask = xs::batch_bool<T, A>::from_mask(swizzle_blend.second);                                 \
-                                                                                                                       \
+        constexpr auto arr = compute_swizzle_array<T, A, NumItems>({__VA_ARGS__});                                     \
+        constexpr auto swizzle_indices = array_to_batch_constant<T, A, arr>(std::make_index_sequence<kLanes>{});       \
         auto swizzled = xs::swizzle(values, swizzle_indices);                                                          \
         const auto minv = xs::min(values, swizzled);                                                                   \
         const auto maxv = xs::max(values, swizzled);                                                                   \
                                                                                                                        \
+        constexpr auto blend_bits = compute_max_element_mask<NumItems, kLanes>({__VA_ARGS__});                         \
+        const auto blend_mask = xs::batch_bool<T, A>::from_mask(blend_bits);                                           \
         if constexpr (kAscending) {                                                                                    \
             values = xs::select(blend_mask, maxv, minv);                                                               \
         } else {                                                                                                       \
@@ -67,14 +86,18 @@ namespace smallcanon::simd::sort::sort_details {
             COMPARE_LAYER(values, {1, 2})
 
         } else if constexpr (NumItems == 8) {
-            COMPARE_LAYER(values, {0, 2}, {1, 3}, {4, 6}, {5, 7});
+            // we're using a bitonic merge sort here, as it has the optimal number of layers
+            // and a much more regular pattern than the optimal sorting network with only 19 comparators (which
+            // requires more expensive swizzles)
+            COMPARE_LAYER(values, {0, 1}, {3, 2}, {4, 5}, {7, 6});
+            COMPARE_LAYER(values, {0, 2}, {1, 3}, {6, 4}, {7, 5});
+            COMPARE_LAYER(values, {0, 1}, {2, 3}, {5, 4}, {7, 6});
             COMPARE_LAYER(values, {0, 4}, {1, 5}, {2, 6}, {3, 7});
+            COMPARE_LAYER(values, {0, 2}, {1, 3}, {4, 6}, {5, 7});
             COMPARE_LAYER(values, {0, 1}, {2, 3}, {4, 5}, {6, 7});
-            COMPARE_LAYER(values, {2, 4}, {3, 5});
-            COMPARE_LAYER(values, {1, 4}, {3, 6});
-            COMPARE_LAYER(values, {1, 2}, {3, 4}, {5, 6});
 
         } else if constexpr (NumItems == 16) {
+            // bitonic merge sort needs one layer more ...
             COMPARE_LAYER(values, {0, 5}, {1, 4}, {2, 12}, {3, 13}, {6, 7}, {8, 9}, {10, 15}, {11, 14})
             COMPARE_LAYER(values, {0, 2}, {1, 10}, {3, 6}, {4, 7}, {5, 14}, {8, 11}, {9, 12}, {13, 15})
             COMPARE_LAYER(values, {0, 8}, {1, 3}, {2, 11}, {4, 13}, {5, 9}, {6, 10}, {7, 15}, {12, 14})
