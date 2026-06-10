@@ -1,8 +1,8 @@
 #pragma once
 
 #include <concepts>
-#include <ranges>
 #include <memory>
+#include <ranges>
 #include <utility>
 
 namespace smallcanon {

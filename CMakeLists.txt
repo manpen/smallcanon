@@ -20,6 +20,7 @@ include(FetchContent)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
 set(XSIMD_SKIP_INSTALL ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
         xsimd
@@ -62,6 +63,41 @@ endif ()
 option(TESTS "Build smallcanon tests" OFF)
 option(INDIV_TESTS "Build many small test executables" OFF)
 option(BENCHMARKS "Build smallcanon benchmarks" OFF)
+option(NAUTY "Build with nauty" OFF)
+
+if (NAUTY)
+    enable_language(C)
+    include(FetchContent)
+
+    FetchContent_Declare(
+            nauty_src
+            URL https://pallini.di.uniroma1.it/nauty2_9_3.tar.gz
+    )
+
+    FetchContent_MakeAvailable(nauty_src)
+
+    add_library(nauty STATIC
+            ${nauty_src_SOURCE_DIR}/nauty.c
+            ${nauty_src_SOURCE_DIR}/nautil.c
+            ${nauty_src_SOURCE_DIR}/naugraph.c
+            ${nauty_src_SOURCE_DIR}/schreier.c
+            ${nauty_src_SOURCE_DIR}/naurng.c
+            ${nauty_src_SOURCE_DIR}/traces.c
+            ${nauty_src_SOURCE_DIR}/gtools.c
+            ${nauty_src_SOURCE_DIR}/nausparse.c
+    )
+
+    target_include_directories(nauty PUBLIC
+            ${nauty_src_SOURCE_DIR}
+    )
+
+    target_compile_definitions(nauty PUBLIC
+            MAXN=WORDSIZE
+    )
+
+    target_compile_definitions(smallcanon INTERFACE SMALLCANON_WITH_NAUTY)
+endif ()
+
 
 if (TESTS)
     include(CTest)

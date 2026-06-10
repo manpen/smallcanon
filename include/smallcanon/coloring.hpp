@@ -9,6 +9,8 @@
 
 #include <smallcanon/graph.hpp>
 
+#include "adj_matrix.hpp"
+
 namespace smallcanon {
     /// Coloring maps nodes to colors backed by a configurable storage type.
     /// Only colors in the range [0, capacity) are guaranteed to be storable because storage may use a type smaller than
@@ -26,6 +28,16 @@ namespace smallcanon {
         constexpr explicit Coloring(node_t capacity) : storage(capacity) {}
 
         constexpr Coloring(Coloring&&) = default;
+
+        /// Returns a mutable view of the color buffer.
+        constexpr std::span<scolor_t> buffer() noexcept {
+            return storage.buffer();
+        }
+
+        /// Returns a read-only view of the color buffer.
+        constexpr std::span<const scolor_t> buffer() const noexcept {
+            return storage.buffer();
+        }
 
         /// Returns the number of nodes supported.
         [[nodiscard]] node_t capacity() const noexcept {
@@ -155,4 +167,16 @@ namespace smallcanon {
     using Coloring64 = Coloring<details::FixedColorStore64>;
     using Coloring128 = Coloring<details::FixedColorStore128>;
     using ColoringHeap = Coloring<details::ColorStoreHeap>;
+
+    template<typename G>
+    struct MatchedColoring {};
+
+    // clang-format off
+    template<> struct MatchedColoring<AdjMatrix8>    { using coloring_t = Coloring8   ; };
+    template<> struct MatchedColoring<AdjMatrix16>   { using coloring_t = Coloring16  ; };
+    template<> struct MatchedColoring<AdjMatrix32>   { using coloring_t = Coloring32  ; };
+    template<> struct MatchedColoring<AdjMatrix64>   { using coloring_t = Coloring64  ; };
+    template<> struct MatchedColoring<AdjMatrix128>  { using coloring_t = Coloring128 ; };
+    template<> struct MatchedColoring<AdjMatrixHeap> { using coloring_t = ColoringHeap; };
+    // clang-format on
 } // namespace smallcanon

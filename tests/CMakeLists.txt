@@ -13,12 +13,12 @@ SET(SMALL_CANON_TESTS
 function(add_smallcanon_test name)
     add_executable(smallcanon_test_${name} ${name}.cpp)
     target_link_libraries(smallcanon_test_${name}
-        PRIVATE
+            PRIVATE
             smallcanon::smallcanon
             GTest::gtest_main
     )
     target_compile_definitions(smallcanon_test_${name}
-        PRIVATE
+            PRIVATE
             SMALLCANON_PROJECT_ROOT="${PROJECT_SOURCE_DIR}"
     )
 
@@ -26,12 +26,12 @@ function(add_smallcanon_test name)
 endfunction()
 
 if (INDIV_TESTS)
-    foreach(SRC IN LISTS SMALL_CANON_TESTS)
+    foreach (SRC IN LISTS SMALL_CANON_TESTS)
         add_smallcanon_test(SRC)
     endforeach ()
-else()
+else ()
     add_executable(smallcanon_test)
-    foreach(SRC IN LISTS SMALL_CANON_TESTS)
+    foreach (SRC IN LISTS SMALL_CANON_TESTS)
         target_sources(smallcanon_test PRIVATE ${SRC}.cpp)
     endforeach ()
 
@@ -42,10 +42,10 @@ else()
             GTest::gtest_main
     )
     target_compile_definitions(smallcanon_test
-        PRIVATE
+            PRIVATE
             SMALLCANON_PROJECT_ROOT="${PROJECT_SOURCE_DIR}"
     )
 
     gtest_discover_tests(smallcanon_test)
-endif()
+endif ()
 
