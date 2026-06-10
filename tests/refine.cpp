@@ -12,7 +12,7 @@
 #include <xsimd/xsimd.hpp>
 #include "smallcanon/parser.hpp"
 
-#include "smallcanon/refine/avx512_instrinsics.hpp"
+#include "smallcanon/refine/avx512intrin.hpp"
 
 namespace {
     struct RefinementNaiveScale {
@@ -133,17 +133,40 @@ TYPED_TEST(RefinementTests, CycleKeepsSymmetricNodesInOneColorClass) {
     }
 }
 
-TYPED_TEST(RefinementTests, InitialColorsArePartOfTheFingerprint) {
+TYPED_TEST(RefinementTests, InitialColorsAreRespectedEmpty) {
     const auto graph = TestFixture::make_graph(2);
     typename TestFixture::coloring_t coloring(graph.num_nodes());
     coloring.set_color(0, 1);
 
     TestFixture::refinement_t::refine(graph, coloring);
 
-    EXPECT_EQ(coloring.get_color(0), 1);
+    const auto color_of_other = coloring.get_color(1);
+
+    EXPECT_NE(coloring.get_color(0), color_of_other);
     for (smallcanon::node_t u = 1; u < graph.num_nodes(); ++u) {
-        EXPECT_EQ(coloring.get_color(u), 0) << "node " << u;
+        EXPECT_EQ(coloring.get_color(u), color_of_other) << "node " << u;
     }
+
+    EXPECT_TRUE(coloring.get_color(0) < 2);
+    EXPECT_TRUE(coloring.get_color(1) < 2);
+}
+
+
+TYPED_TEST(RefinementTests, InitialColorsAreRespectedCircle) {
+    const auto graph = TestFixture::make_graph(3, {{0, 1}, {1, 2}, {2, 0}});
+    typename TestFixture::coloring_t coloring(graph.num_nodes());
+    coloring.set_color(1, 2);
+
+    TestFixture::refinement_t::refine(graph, coloring);
+
+    const auto color_of_other = coloring.get_color(0);
+
+    EXPECT_EQ(coloring.get_color(0), color_of_other);
+    EXPECT_NE(coloring.get_color(1), color_of_other);
+    EXPECT_EQ(coloring.get_color(2), color_of_other);
+
+    EXPECT_TRUE(coloring.get_color(0) < 2);
+    EXPECT_TRUE(coloring.get_color(1) < 2);
 }
 
 TYPED_TEST(RefinementTests, DefaultNodeCount) {

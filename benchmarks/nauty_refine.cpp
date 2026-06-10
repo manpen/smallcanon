@@ -11,15 +11,15 @@
 #include <smallcanon/parser.hpp>
 
 #include <smallcanon/coloring.hpp>
-#include <smallcanon/refine/avx512_instrinsics.hpp>
+#include <smallcanon/refine/avx512intrin.hpp>
 #include <smallcanon/refine/naive.hpp>
 
 extern "C" {
-    #include "nauty.h"
+#include "nauty.h"
 }
 
 namespace {
-    template <size_t MaxN>
+    template<size_t MaxN>
     struct NautyInstances {
         static constexpr size_t kMaxN = MaxN;
         static constexpr size_t kMaxM = SETWORDSNEEDED(kMaxN);
@@ -43,21 +43,21 @@ namespace {
         }
 
         void reset_aux() {
-            for (int i=0; i<n; ++i) {
+            for (int i = 0; i < n; ++i) {
                 lab[i] = i;
                 ptn[i] = 1;
                 ADDELEMENT(active.data(), i);
             }
-            ptn[n-1] = 0;
+            ptn[n - 1] = 0;
         }
     };
 
-    template <typename G>
+    template<typename G>
     auto load_nauty_instances() {
         constexpr size_t kMaxN = G::storage_t::CAPACITY;
         using instance_t = NautyInstances<kMaxN>;
         std::vector<instance_t> instances;
-        for (auto fn : {"all_n8.g6", "all_m11.g6", "curated.g6"}) {
+        for (auto fn: {"all_n8.g6", "all_m11.g6", "curated.g6"}) {
             const auto dataset_path = std::filesystem::path(SMALLCANON_PROJECT_ROOT) / "datasets" / fn;
             std::ifstream dataset_file(dataset_path);
             for (auto [name, graph]: smallcanon::read_graph_dataset(dataset_file)) {
@@ -67,7 +67,7 @@ namespace {
                             if constexpr (std::is_same_v<T, G>) {
                                 instances.emplace_back(static_cast<int>(adjmat.num_nodes()));
 
-                                for (auto [u,v] : adjmat.edges()) {
+                                for (auto [u, v]: adjmat.edges()) {
                                     instances.back().add_edge(static_cast<int>(u), static_cast<int>(v));
                                 }
                             }
@@ -96,25 +96,26 @@ namespace {
 
         size_t idx = instances.size() - 1;
 
-        for (auto _ : state) {
+        for (auto _: state) {
             if (++idx == instances.size()) {
                 state.PauseTiming();
-                for (auto& inst : instances) {
+                for (auto& inst: instances) {
                     inst.reset_aux();
                 }
                 state.ResumeTiming();
                 idx = 0;
             }
 
-            auto & inst = instances[idx];
+            auto& inst = instances[idx];
 
             numcells = 1;
-            refine(inst.g.data(), inst.lab.data(), inst.ptn.data(), 0, &numcells, inst.scratch.data(), inst.active.data(), &code, inst.m, inst.n);
+            refine(inst.g.data(), inst.lab.data(), inst.ptn.data(), 0, &numcells, inst.scratch.data(),
+                   inst.active.data(), &code, inst.m, inst.n);
             benchmark::DoNotOptimize(inst);
         }
     }
 
-    template <typename G>
+    template<typename G>
     struct SmallCanonInstance {
         using graph_t = G;
         using coloring_t = typename smallcanon::MatchedColoring<G>::coloring_t;
@@ -125,16 +126,16 @@ namespace {
         explicit SmallCanonInstance(graph_t&& graph) : graph{std::move(graph)}, coloring(graph.num_nodes()) {}
 
         void reset_aux() {
-            for (auto node : graph.nodes()) {
+            for (auto node: graph.nodes()) {
                 coloring.set_color(node, 0);
             }
         }
     };
 
-    template <typename G>
+    template<typename G>
     auto load_smallcanon_instances() {
         std::vector<SmallCanonInstance<G>> instances;
-        for (auto fn : {"all_n8.g6", "all_m11.g6", "curated.g6"}) {
+        for (auto fn: {"all_n8.g6", "all_m11.g6", "curated.g6"}) {
             const auto dataset_path = std::filesystem::path(SMALLCANON_PROJECT_ROOT) / "datasets" / fn;
             std::ifstream dataset_file(dataset_path);
             for (auto [name, graph]: smallcanon::read_graph_dataset(dataset_file)) {
@@ -163,17 +164,17 @@ namespace {
         }
 
         size_t idx = 0;
-        for (auto _ : state) {
+        for (auto _: state) {
             if (++idx == instances.size()) {
                 state.PauseTiming();
-                for (auto& inst : instances) {
+                for (auto& inst: instances) {
                     inst.reset_aux();
                 }
                 state.ResumeTiming();
                 idx = 0;
             }
 
-            auto & inst = instances[idx];
+            auto& inst = instances[idx];
 
             smallcanon::refine::naive::refine(inst.graph, inst.coloring);
 
@@ -191,32 +192,31 @@ namespace {
         }
 
         size_t idx = 0;
-        for (auto _ : state) {
+        for (auto _: state) {
             if (++idx == instances.size()) {
                 state.PauseTiming();
-                for (auto& inst : instances) {
+                for (auto& inst: instances) {
                     inst.reset_aux();
                 }
                 state.ResumeTiming();
                 idx = 0;
             }
 
-            auto & inst = instances[idx];
+            auto& inst = instances[idx];
 
             smallcanon::refine::avx512intrin::refine(inst.graph, inst.coloring);
 
             benchmark::DoNotOptimize(inst);
         }
     }
-}
+} // namespace
 
 BENCHMARK_TEMPLATE(bm_avx512_instrinsic, smallcanon::AdjMatrix8);
 BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix8);
 BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix8);
 
-//BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix16);
-//BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix32);
+// BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix16);
+// BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix32);
 
-//BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix16);
-//BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix32);
-
+// BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix16);
+// BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix32);
