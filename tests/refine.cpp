@@ -63,12 +63,14 @@ namespace {
         }
     };
 
-    using RefinementTestTypes =
-            testing::Types<RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix8>,
-                           RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix16>,
-                           RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix32>,
-                           RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrixHeap>,
-                           RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix8>>;
+    using RefinementTestTypes = testing::Types<
+#if XSIMD_WITH_AVX512F
+            RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix8>,
+#endif
+            RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix8>,
+            RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix16>,
+            RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix32>,
+            RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrixHeap>>;
     TYPED_TEST_SUITE(RefinementTests, RefinementTestTypes);
 
     template<typename SC>

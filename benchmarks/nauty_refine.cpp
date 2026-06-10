@@ -182,6 +182,7 @@ namespace {
         }
     }
 
+#if XSIMD_WITH_AVX512F
     template<typename G>
     void bm_avx512_instrinsic(benchmark::State& state) {
         static auto instances = load_smallcanon_instances<G>();
@@ -209,14 +210,17 @@ namespace {
             benchmark::DoNotOptimize(inst);
         }
     }
+#endif
 } // namespace
 
+#if XSIMD_WITH_AVX512F
 BENCHMARK_TEMPLATE(bm_avx512_instrinsic, smallcanon::AdjMatrix8);
+#endif
 BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix8);
 BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix8);
 
-// BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix16);
-// BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix32);
+BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix16);
+BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix32);
 
 // BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix16);
 // BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix32);
