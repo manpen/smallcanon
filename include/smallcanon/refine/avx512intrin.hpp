@@ -33,10 +33,6 @@ namespace smallcanon::refine::avx512intrin {
     static_assert(u32x16_t::size == 16);
     static_assert(u64x8_t::size == 8);
 
-    static uint64_t first_lane(u64x8_t vec) {
-        return _mm_cvtsi128_si64(_mm512_castsi512_si128(vec));
-    }
-
     template<typename SM, typename SC>
     void refine(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
         static_assert(false); // need specialization
@@ -44,6 +40,7 @@ namespace smallcanon::refine::avx512intrin {
 
     namespace graph8 {
         static uint64_t load_color(const Coloring8& coloring) {
+            // this should become a simple load ... but this version should be more portable.
             uint64_t color = 0;
             for (int i = 0; i < 8; ++i) {
                 color |= static_cast<uint64_t>(coloring.get_color(i)) << (8 * i);
@@ -51,16 +48,16 @@ namespace smallcanon::refine::avx512intrin {
             return color;
         }
 
-        __m512i load_graph(const AdjMatrix8& graph) {
-            alignas(64) std::array<uint64_t, 8> rows{};
-
-            for (int i = 0; i < graph.num_nodes(); ++i) {
-                rows[i] = static_cast<uint64_t>(*graph.row(i).data()) * 0x0101010101010101;
+        static u64x8_t load_graph(const AdjMatrix8& graph) {
+            // this should become a simple load ... but this version should be more portable.
+            uint64_t single_graph = 0;
+            for (int i = 0; i < 8; ++i) {
+                single_graph |= static_cast<uint64_t>(*graph.row_upto_capacity(i).data()) << (8 * i);
             }
 
-            return _mm512_load_epi64(rows.data());
+            const auto rows = (xs::broadcast(single_graph) >> u64xconst<0, 8, 16, 24, 32, 40, 48, 56>()) & 0xff;
+            return rows * 0x0101010101010101;
         }
-
 
         static void set_color(Coloring8& coloring, uint64_t color) {
             for (int i = 0; i < 8; ++i, color >>= 8) {
@@ -94,7 +91,7 @@ namespace smallcanon::refine::avx512intrin {
             return with_node_ids | colors_at_msb;
         }
 
-        u8x64_t compute_prefixsum_u8x8(uint8_t same_fingerprint_as_pred) {
+        static u8x64_t compute_prefixsum_u8x8(uint8_t same_fingerprint_as_pred) {
             // since we can easily fit 8 copies of 8 bits each into a register, we can abuse popcnt to compute a prefix
             // sum.
             u8x64_t masked = xs::bitwise_cast<uint8_t>(xs::broadcast_as<uint64_t>(0xff7f3f1f0f070301)) &
@@ -114,8 +111,7 @@ namespace smallcanon::refine::avx512intrin {
         auto color_uint64 = graph8::load_color(coloring);
 
         if (!color_uint64) {
-            const auto vdegrees = _mm512_popcnt_epi8(vgraph);
-            color_uint64 = first_lane(vdegrees);
+            color_uint64 = xs::get<0>(u64x8_t{_mm512_popcnt_epi8(vgraph)});
         }
 
         // Store the previous value of `same_fingerprint_as_pred`.
@@ -158,7 +154,7 @@ namespace smallcanon::refine::avx512intrin {
                 // Check for discrete
                 if ((same_fingerprint_as_pred | 1) == enabled_eq_mask) {
                     // got discrete coloring, so order of node ids in fingerprint is color
-                    color_uint64 = first_lane(node_ids_by_rank);
+                    color_uint64 = xs::get<0>(node_ids_by_rank);
                     break;
                 }
 
