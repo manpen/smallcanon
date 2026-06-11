@@ -6,32 +6,15 @@
 
 #include <immintrin.h>
 
+#include <smallcanon/simd/avx512defs.hpp>
 #include "smallcanon/adj_matrix.hpp"
 #include "smallcanon/coloring.hpp"
 #include "smallcanon/simd/sort.hpp"
 
+#include "smallcanon/simd/avx512defs.hpp"
+
 namespace smallcanon::refine::avx512intrin {
-    namespace xs = xsimd;
-
-    using arch = xs::best_arch;
-    using u64x8_t = xs::batch<uint64_t, arch>;
-    using u32x16_t = xs::batch<uint32_t, arch>;
-    using u16x32_t = xs::batch<uint16_t, arch>;
-    using u8x64_t = xs::batch<uint8_t, arch>;
-
-    template<uint8_t... Vs>
-    using u8xconst = xs::batch_constant<uint8_t, arch, Vs...>;
-    template<uint16_t... Vs>
-    using u16xconst = xs::batch_constant<uint16_t, arch, Vs...>;
-    template<uint32_t... Vs>
-    using u32xconst = xs::batch_constant<uint32_t, arch, Vs...>;
-    template<uint64_t... Vs>
-    using u64xconst = xs::batch_constant<uint64_t, arch, Vs...>;
-
-    static_assert(u8x64_t::size == 64);
-    static_assert(u16x32_t::size == 32);
-    static_assert(u32x16_t::size == 16);
-    static_assert(u64x8_t::size == 8);
+    using namespace smallcanon::simd::avx512defs;
 
     template<typename SM, typename SC>
     void refine(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
@@ -77,7 +60,7 @@ namespace smallcanon::refine::avx512intrin {
             uint64_t color_mask = compute_color_mask_vec(color_uint64);
 
             const u64x8_t masked = vgraph & color_mask;
-            const u64x8_t color_counts = _mm512_popcnt_epi8(masked);
+            const u64x8_t color_counts = u64x8_t(popcnt(u8x64_t(masked)));
             const auto color_counts32 = //
                     ((color_counts & 0x00000000FFFFFFFF) << 4) | //
                     ((color_counts & 0xFFFFFFFF00000000) >> 25);
@@ -96,7 +79,7 @@ namespace smallcanon::refine::avx512intrin {
             // sum.
             u8x64_t masked = xs::bitwise_cast<uint8_t>(xs::broadcast_as<uint64_t>(0xff7f3f1f0f070301)) &
                              same_fingerprint_as_pred;
-            return _mm512_popcnt_epi8(masked);
+            return popcnt(masked);
         }
     } // namespace graph8
 
@@ -111,7 +94,7 @@ namespace smallcanon::refine::avx512intrin {
         auto color_uint64 = graph8::load_color(coloring);
 
         if (!color_uint64) {
-            color_uint64 = xs::get<0>(u64x8_t{_mm512_popcnt_epi8(vgraph)});
+            color_uint64 = xs::get<0>(u64x8_t{popcnt(u8x64_t{vgraph})});
         }
 
         // Store the previous value of `same_fingerprint_as_pred`.
