@@ -1,0 +1,11 @@
+c comment line begin with c
+c theres exactly one header in the format `p edge {n} {m}` where n is the number of nodes and m the number of edges
+p edge 5 4
+c there are exact m edge lines of format `e {u} {v}`
+e 1 2
+e 2 3
+e 3 4
+e 4 5
+c there are up to n color lines in the format `v {u} {c}` indicating that node {u} has color {c}
+n 1 3
+c empty lines may appear:

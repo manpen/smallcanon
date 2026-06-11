@@ -152,7 +152,7 @@ TYPED_TEST(AdjMatrixTests, AddEdgeWorksAtHighestValidNodeIndex) {
 
 TYPED_TEST(AdjMatrixTests, AddEdgesAddsNewEdgesAndReportsNewEdgeCount) {
     auto matrix = TypeParam::make_matrix();
-    std::vector<smallcanon::edge_t> edges{{0, 1}, {0, 2}, {0, 1}, {2, 2}};
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {0, 2}, {0, 1}, {1, 2}};
 
     EXPECT_EQ(matrix.add_edges(edges), 3);
 
@@ -160,7 +160,8 @@ TYPED_TEST(AdjMatrixTests, AddEdgesAddsNewEdgesAndReportsNewEdgeCount) {
     EXPECT_TRUE(matrix.has_edge(1, 0));
     EXPECT_TRUE(matrix.has_edge(0, 2));
     EXPECT_TRUE(matrix.has_edge(2, 0));
-    EXPECT_TRUE(matrix.has_edge(2, 2));
+    EXPECT_TRUE(matrix.has_edge(1, 2));
+    EXPECT_TRUE(matrix.has_edge(2, 1));
 }
 
 TYPED_TEST(AdjMatrixTests, AddEdgesOnlyCountsEdgesNotAlreadyPresent) {
@@ -195,16 +196,17 @@ TYPED_TEST(AdjMatrixTests, RemoveEdgesRemovesPresentEdgesAndReportsRemovedEdgeCo
 
     ASSERT_FALSE(matrix.add_edge(0, 1));
     ASSERT_FALSE(matrix.add_edge(0, 2));
-    ASSERT_FALSE(matrix.add_edge(2, 2));
+    ASSERT_FALSE(matrix.add_edge(1, 2));
 
-    std::vector<smallcanon::edge_t> edges{{0, 1}, {1, 2}, {2, 2}, {0, 1}};
+    std::vector<smallcanon::edge_t> edges{{0, 1}, {1, 2}, {1, 2}, {0, 1}};
 
     EXPECT_EQ(matrix.remove_edges(edges), 2);
 
     EXPECT_FALSE(matrix.has_edge(0, 1));
     EXPECT_FALSE(matrix.has_edge(1, 0));
     EXPECT_TRUE(matrix.has_edge(0, 2));
-    EXPECT_FALSE(matrix.has_edge(2, 2));
+    EXPECT_FALSE(matrix.has_edge(1, 2));
+    EXPECT_FALSE(matrix.has_edge(2, 1));
 }
 
 TYPED_TEST(AdjMatrixTests, RemoveEdgesOnlyCountsEdgesPresentAtRemovalTime) {
@@ -218,16 +220,6 @@ TYPED_TEST(AdjMatrixTests, RemoveEdgesOnlyCountsEdgesPresentAtRemovalTime) {
 
     EXPECT_FALSE(matrix.has_edge(0, 1));
     EXPECT_FALSE(matrix.has_edge(1, 0));
-}
-
-TYPED_TEST(AdjMatrixTests, SupportsSelfLoops) {
-    auto matrix = TypeParam::make_matrix();
-
-    EXPECT_FALSE(matrix.add_edge(2, 2));
-    EXPECT_TRUE(matrix.has_edge(2, 2));
-
-    EXPECT_TRUE(matrix.remove_edge(2, 2));
-    EXPECT_FALSE(matrix.has_edge(2, 2));
 }
 
 TYPED_TEST(AdjMatrixTests, CountDegreeCountsSetBitsInRow) {
@@ -272,13 +264,13 @@ TYPED_TEST(AdjMatrixTests, NeighborsOfReturnsAdjacentNodesInAscendingOrder) {
     EXPECT_EQ(collect_neighbors_of(matrix, 0), (std::vector<smallcanon::node_t>{1, 2, last}));
 }
 
-TYPED_TEST(AdjMatrixTests, NeighborsOfIncludesSelfLoops) {
+TYPED_TEST(AdjMatrixTests, NeighborsOfReturnsAdjacentNodesForNonzeroNode) {
     auto matrix = TypeParam::make_matrix();
 
-    matrix.add_edge(2, 2);
     matrix.add_edge(2, 0);
+    matrix.add_edge(2, 1);
 
-    EXPECT_EQ(collect_neighbors_of(matrix, 2), (std::vector<smallcanon::node_t>{0, 2}));
+    EXPECT_EQ(collect_neighbors_of(matrix, 2), (std::vector<smallcanon::node_t>{0, 1}));
 }
 
 TYPED_TEST(AdjMatrixTests, EdgesReturnsNoEdgesForEmptyMatrix) {
@@ -298,11 +290,11 @@ TYPED_TEST(AdjMatrixTests, EdgesReturnsEachUndirectedEdgeOnce) {
     EXPECT_EQ(collect_edges(matrix), (std::vector<smallcanon::edge_t>{{1, 0}, {2, 0}, {last, last - 1}}));
 }
 
-TYPED_TEST(AdjMatrixTests, EdgesIncludesSelfLoopsOnce) {
+TYPED_TEST(AdjMatrixTests, EdgesReturnsEdgesForNonzeroSource) {
     auto matrix = TypeParam::make_matrix();
 
-    matrix.add_edge(1, 1);
+    matrix.add_edge(1, 2);
     matrix.add_edge(0, 2);
 
-    EXPECT_EQ(collect_edges(matrix), (std::vector<smallcanon::edge_t>{{1, 1}, {2, 0}}));
+    EXPECT_EQ(collect_edges(matrix), (std::vector<smallcanon::edge_t>{{2, 0}, {2, 1}}));
 }

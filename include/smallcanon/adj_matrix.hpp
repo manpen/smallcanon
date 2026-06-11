@@ -26,7 +26,8 @@ namespace smallcanon {
         using storage_t = Storage;
         using word_t = typename Storage::word_t;
         static constexpr size_t BITS_PER_WORD = Storage::BITS_PER_WORD;
-        static constexpr bool LOOPS_ALLOWED = true;
+        static constexpr bool LOOPS_ALLOWED = false;
+        static constexpr node_t MAX_NODES = storage_t::MAX_NODES;
 
     private:
         Storage storage{};
@@ -170,6 +171,7 @@ namespace smallcanon {
             using word_t = uint32_t;
             static constexpr size_t BITS_PER_WORD = 8 * sizeof(word_t);
             static constexpr node_t CAPACITY_OF_SMALLEST_GRAPH = BITS_PER_WORD;
+            static constexpr node_t MAX_NODES = std::numeric_limits<node_t>::max();
 
         private:
             node_t row_capacity_;
@@ -223,6 +225,7 @@ namespace smallcanon {
             using word_t = Word;
             static constexpr size_t BITS_PER_WORD = 8 * sizeof(word_t);
             static constexpr node_t CAPACITY = Capacity;
+            static constexpr node_t MAX_NODES = CAPACITY;
 
         private:
             static_assert(std::has_single_bit(Capacity)); // is power of two
