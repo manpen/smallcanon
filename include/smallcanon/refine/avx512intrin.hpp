@@ -4,14 +4,11 @@
 
 #if XSIMD_WITH_AVX512F
 
-#include <immintrin.h>
+#include <smallcanon/adj_matrix.hpp>
+#include <smallcanon/coloring.hpp>
+#include <smallcanon/simd/sort.hpp>
 
 #include <smallcanon/simd/avx512defs.hpp>
-#include "smallcanon/adj_matrix.hpp"
-#include "smallcanon/coloring.hpp"
-#include "smallcanon/simd/sort.hpp"
-
-#include "smallcanon/simd/avx512defs.hpp"
 
 namespace smallcanon::refine::avx512intrin {
     using namespace smallcanon::simd::avx512defs;
@@ -38,7 +35,7 @@ namespace smallcanon::refine::avx512intrin {
                 single_graph |= static_cast<uint64_t>(*graph.row_upto_capacity(i).data()) << (8 * i);
             }
 
-            const auto rows = (xs::broadcast(single_graph) >> u64xconst<0, 8, 16, 24, 32, 40, 48, 56>()) & 0xff;
+            const auto rows = (xs::broadcast(single_graph) >> u64cont<0, 8>()) & 0xff;
             return rows * 0x0101010101010101;
         }
 
@@ -51,7 +48,7 @@ namespace smallcanon::refine::avx512intrin {
         static uint64_t compute_color_mask_vec(uint64_t x) {
             u8x64_t colors = u8x64_t(xs::broadcast(x));
             constexpr uint64_t f = 0x0101010101010101;
-            return (colors == u8x64_t(u64xconst<0, f, 2 * f, 3 * f, 4 * f, 5 * f, 6 * f, 7 * f>().as_batch())).mask();
+            return (colors == u8x64_t(u64cont<0, f>().as_batch())).mask();
         }
 
         static u64x8_t compute_fingerprints(const u64x8_t vgraph, const uint64_t color_uint64,
@@ -65,11 +62,10 @@ namespace smallcanon::refine::avx512intrin {
                     ((color_counts & 0x00000000FFFFFFFF) << 4) | //
                     ((color_counts & 0xFFFFFFFF00000000) >> 25);
 
-            const auto with_node_ids = color_counts32 | u64xconst<0, 1, 2, 3, 4, 5, 6, 7>();
+            const auto with_node_ids = color_counts32 | u64cont<0, 1>();
 
             const u64x8_t colors_at_msb =
-                    (xs::broadcast(color_uint64 | disabled_colors) << u64xconst<60, 52, 44, 36, 28, 20, 12, 4>()) &
-                    0xf000000000000000;
+                    (xs::broadcast(color_uint64 | disabled_colors) << u64cont<60, 52>()) & 0xf000000000000000;
 
             return with_node_ids | colors_at_msb;
         }
@@ -121,7 +117,7 @@ namespace smallcanon::refine::avx512intrin {
                 // We compare each fingerprint to its predecessor (i.e. the element with next lower rank).
                 // We finally obtain an 8-bit integer (same_fingerprint_as_pred), where a one in the i-th bit encodes
                 // that a new color starts with the node of rank i.
-                const u64x8_t shifted_fps = xs::swizzle(fingerprints_wo_node_ids, u64xconst<0, 0, 1, 2, 3, 4, 5, 6>{});
+                const u64x8_t shifted_fps = xs::swizzle(fingerprints_wo_node_ids, u64cont<0, 0, 1>{});
                 same_fingerprint_as_pred =
                         static_cast<uint8_t>((fingerprints_wo_node_ids != shifted_fps).mask()) & enabled_eq_mask;
                 assert((same_fingerprint_as_pred & 1) == 0);
@@ -152,8 +148,7 @@ namespace smallcanon::refine::avx512intrin {
             // the node u of rank i and moves its color to the u-th byte while zeroing out all others.
             // Then we recombine the 8 uint64_t values by a horizontal sum
             {
-                u64x8_t new_colors =
-                        (static_cast<u64x8_t>(prefixsum) >> u64xconst<0, 8, 16, 24, 32, 40, 48, 56>()) & 0xff;
+                u64x8_t new_colors = (static_cast<u64x8_t>(prefixsum) >> u64cont<0, 8>()) & 0xff;
                 const auto shifted = new_colors << (8 * node_ids_by_rank);
                 color_uint64 = xs::reduce_add(shifted);
             }

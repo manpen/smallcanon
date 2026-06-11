@@ -1,5 +1,6 @@
 #pragma once
 
+#include <smallcanon/simd/continuation_helper.hpp>
 #include <xsimd/xsimd.hpp>
 
 namespace smallcanon::simd::avx512defs {
@@ -20,6 +21,19 @@ namespace smallcanon::simd::avx512defs {
     using u32xconst = xs::batch_constant<uint32_t, arch, Vs...>;
     template<uint64_t... Vs>
     using u64xconst = xs::batch_constant<uint64_t, arch, Vs...>;
+
+    template<uint8_t... Vs>
+        requires(sizeof...(Vs) > 1)
+    using u8cont = typename continuation::const_continuation<uint8_t, arch, Vs...>::value_t;
+    template<uint16_t... Vs>
+        requires(sizeof...(Vs) > 1)
+    using u16cont = typename continuation::const_continuation<uint16_t, arch, Vs...>::value_t;
+    template<uint32_t... Vs>
+        requires(sizeof...(Vs) > 1)
+    using u32cont = typename continuation::const_continuation<uint32_t, arch, Vs...>::value_t;
+    template<uint64_t... Vs>
+        requires(sizeof...(Vs) > 1)
+    using u64cont = typename continuation::const_continuation<uint64_t, arch, Vs...>::value_t;
 
     static_assert(u8x64_t::size == 64);
     static_assert(u16x32_t::size == 32);
