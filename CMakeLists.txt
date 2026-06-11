@@ -64,6 +64,7 @@ option(TESTS "Build smallcanon tests" OFF)
 option(INDIV_TESTS "Build many small test executables" OFF)
 option(BENCHMARKS "Build smallcanon benchmarks" OFF)
 option(NAUTY "Build with nauty" OFF)
+option(CLI "Build cli tools" OFF)
 
 if (NAUTY)
     enable_language(C)
@@ -126,4 +127,8 @@ if (BENCHMARKS)
     FetchContent_MakeAvailable(googlebenchmark)
 
     add_subdirectory(benchmarks)
+endif ()
+
+if (CLI)
+    add_subdirectory(cli)
 endif ()
