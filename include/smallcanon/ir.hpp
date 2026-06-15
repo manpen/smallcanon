@@ -33,6 +33,11 @@ namespace smallcanon {
                 has = true;
             }
 
+            void invalidate() {
+                group_size = 1;
+                orbits.clear();
+                has = false;
+            }
         };
 
         struct Stats {
@@ -51,6 +56,50 @@ namespace smallcanon {
             }
         };
 
+        template<typename SC>
+        struct SearchStack {
+            std::vector<Coloring<SC>> base_to_coloring;
+            std::vector<node_t>       base_to_vertex;
+            std::vector<color_t>      base_to_col;
+            std::vector<inv_t>        base_to_inv;
+
+            void push(Coloring<SC>& coloring, color_t selector_col, node_t vertex) {
+                base_to_coloring.push_back(coloring.copy());
+                base_to_vertex.push_back(vertex);
+                base_to_col.push_back(selector_col);
+            }
+
+            node_t& top_vertex() {
+                return base_to_vertex.back();
+            }
+
+            color_t& top_color() {
+                return base_to_col.back();
+            }
+
+            Coloring<SC>& top_coloring() {
+                return base_to_coloring.back();
+            }
+
+            void pop() {
+                base_to_coloring.pop_back();
+                base_to_vertex.pop_back();
+                base_to_col.pop_back();
+            }
+
+            size_t size() {
+                return base_to_coloring.size();
+            }
+
+            bool empty() {
+                return base_to_coloring.empty();
+            }
+
+            void pop_to_level(size_t level) {
+                while(base_to_coloring.size() > level) pop();
+            }
+        };
+
         template<typename SM, typename SC>
         Coloring<SC> canonize(const AdjMatrix<SM>& graph, Coloring<SC>& coloring, Stats& stats) {
             // TODO add "configuration/result" information
@@ -62,16 +111,14 @@ namespace smallcanon {
 
             // best leaf found so far
             Leaf<SC> best_leaf(n);
-            std::vector<inv_t> base_to_best_leaf_inv;
-            // TODO maintain the LCA
-            [[maybe_unused]] size_t best_leaf_lca =
-                    0; // where was the last time we agreed with best-leaf root-to-leaf walk?
+            // length of prefix in common with best-leaf path 
+            size_t best_leaf_lca = 0; 
+
+            // TODO invariant
+            //std::vector<inv_t> base_to_best_leaf_inv;
 
             // depth-first search state
-            std::vector<Coloring<SC>> base_to_coloring;
-            std::vector<node_t>       base_to_vertex;
-            std::vector<color_t>      base_to_col;
-            std::vector<inv_t>        base_to_inv;
+            SearchStack<SC> stack;
 
             // additional comparison leaves and orbit partitions
             // constexpr size_t NUM_COMP_LEAFS = 1;
@@ -86,7 +133,7 @@ namespace smallcanon {
 
             bool is_backtrack = false;
             while (true) {
-                DEBUG_STREAM << "c [stack] at depth " << base_to_vertex.size() << " on " << std::endl;
+                DEBUG_STREAM << "c [stack] at depth " << stack.size() << " on " << std::endl;
                 coloring.print(n);
                 // if we're not coming from a backtrack, select new color and put it on stack
                 if (!is_backtrack) {
@@ -106,9 +153,11 @@ namespace smallcanon {
                             DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
                             this_is_the_best_leaf = true;
                             best_leaf.replace(coloring);
+                            best_leaf_lca = stack.size();
                         }
 
 
+                        size_t backtrack_to = stack.size();
                         if(!this_is_the_best_leaf) {
                             // (1) TODO compare invariants
                             // (2) when invariants equal, actually compare leafs
@@ -120,12 +169,15 @@ namespace smallcanon {
                                     // TODO leaf agrees with best-leaf? jump to best-leaf LCA
                                     // TODO jumping to an LCA must purge all "deeper" leafs
                                     ++stats.automorphisms;
+                                    backtrack_to = best_leaf_lca;
+                                    std::clog << "c [compare] backtrack_to=" << backtrack_to << std::endl;
                                     break;
                                 case 1:
                                     DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;;
                                     this_is_the_best_leaf = true;
                                     ++stats.best_leaf_update;
                                     best_leaf.replace(coloring);
+                                    best_leaf_lca = stack.size();
                                     break;
                                 default:
                                     // this leaf is worse.
@@ -142,53 +194,53 @@ namespace smallcanon {
                             // }
                         }
 
-                        if (base_to_coloring.empty())
-                            break;
-                        coloring = base_to_coloring.back().copy();
+                        stack.pop_to_level(backtrack_to);
+                        if (stack.empty()) break;
+                        coloring = stack.top_coloring().copy();
                         is_backtrack = true; // moving backward
                         continue;
                     } else {
                         const color_t col = selector_result.value();
                         DEBUG_STREAM << "c [stack] push vertex_id=" << 0 << ", col=" << col << std::endl;
-                        base_to_coloring.push_back(coloring.copy());
-                        base_to_vertex.push_back(0);
-                        base_to_col.push_back(col);
+                        stack.push(coloring, col, 0);
                     }
                 }
 
+                const bool on_best_leaf_path = best_leaf.has && stack.size() == best_leaf_lca;
                 // continue iterating vertices of present color on stack
-                while (base_to_vertex.back() < graph.num_nodes() &&
-                       (coloring.get_color(base_to_vertex.back()) != base_to_col.back() ||
-                       !best_leaf.orbits.is_representative(base_to_vertex.back()))) {
-                    ++base_to_vertex.back();
+                while (stack.top_vertex() < graph.num_nodes() &&
+                       (coloring.get_color(stack.top_vertex()) != stack.top_color() ||
+                       (on_best_leaf_path && !best_leaf.orbits.is_representative(stack.top_vertex())))) {
+                    ++stack.top_vertex();
                 }
 
                 // no more vertex left to individualize? we need to backtrack
-                if (base_to_vertex.back() == graph.num_nodes()) {
-                    DEBUG_STREAM << "c [stack] pop col=" << base_to_col.back() << std::endl;
-                    // TODO if we're backtracking from the best-leaf LCA, decrement it
+                if (stack.top_vertex() == graph.num_nodes()) {
+                    DEBUG_STREAM << "c [stack] pop col=" << stack.top_color() << std::endl;
 
-                    base_to_coloring.pop_back();
-                    base_to_vertex.pop_back();
-                    base_to_col.pop_back();
+                    // if we're backtracking from the best-leaf LCA, decrement prefix length
+                    // note that in all other cases, this prefix length won't change, as we're never revisiting
+                    // the best leaf path downwards
+                    if(on_best_leaf_path) --best_leaf_lca;
+                    stack.pop();
 
-                    if (base_to_coloring.empty())
-                        break;
-                    coloring = base_to_coloring.back().copy();
-                    is_backtrack = true; // moving backward
+                    if(stack.empty()) break;
+                    coloring = stack.top_coloring().copy();
+                    // moving backwards
+                    is_backtrack = true; 
                     continue;
                 }
 
-                assert(coloring.get_color(base_to_vertex.back()) == base_to_col.back());
+                assert(coloring.get_color(stack.top_vertex()) == stack.top_color());
                 // time to actually do some work now
-                coloring = base_to_coloring.back().copy();
-                DEBUG_STREAM << "c [individualize] individualize vertex=" << base_to_vertex.back() << std::endl;
-                refine::individualize(coloring, base_to_vertex.back());
+                coloring = stack.top_coloring().copy();
+                DEBUG_STREAM << "c [individualize] individualize vertex=" << stack.top_vertex() << std::endl;
+                refine::individualize(coloring, stack.top_vertex());
                 coloring.print(n);
                 DEBUG_STREAM << "c [refine]" << std::endl;
                 refine::naive::refine(graph, coloring); // TODO needs to take as argument a vertex
                 coloring.print(n);
-                ++base_to_vertex.back();
+                ++stack.top_vertex();
                 is_backtrack = false; // we're moving forward in the tree
                 ++stats.ir_nodes_visited;
 
