@@ -47,12 +47,12 @@ namespace smallcanon {
             group_order_t group_size = 1;
 
             void print() {
-                std::clog <<console_bright_blue << "------------------------------------------------" << console_neutral << std::endl;
-                std::clog << "ir_nodes_visited=" << ir_nodes_visited << std::endl;
-                std::clog << "best_leaf_update=" << best_leaf_update << std::endl;
-                std::clog << "automorphisms=" << automorphisms << std::endl;
-                std::clog << "group_size=" << group_size << std::endl;
-                std::clog <<console_bright_blue << "------------------------------------------------" << console_neutral << std::endl;
+                std::clog << "c " << console_bright_blue << "------------------------------------------------" << console_neutral << std::endl;
+                std::clog << "c " << "ir_nodes_visited=" << ir_nodes_visited << std::endl;
+                std::clog << "c " << "best_leaf_update=" << best_leaf_update << std::endl;
+                std::clog << "c " << "automorphisms=" << automorphisms << std::endl;
+                std::clog << "c " << "group_size=" << group_size << std::endl;
+                std::clog << "c " << console_bright_blue << "------------------------------------------------" << console_neutral << std::endl;
             }
         };
 
@@ -111,6 +111,7 @@ namespace smallcanon {
 
             // best leaf found so far
             Leaf<SC> best_leaf(n);
+            std::vector<node_t> best_leaf_path;
             // length of prefix in common with best-leaf path 
             size_t best_leaf_lca = 0; 
 
@@ -154,6 +155,7 @@ namespace smallcanon {
                             this_is_the_best_leaf = true;
                             best_leaf.replace(coloring);
                             best_leaf_lca = stack.size();
+                            best_leaf_path = stack.base_to_vertex;
                         }
 
 
@@ -178,6 +180,7 @@ namespace smallcanon {
                                     ++stats.best_leaf_update;
                                     best_leaf.replace(coloring);
                                     best_leaf_lca = stack.size();
+                                    best_leaf_path = stack.base_to_vertex;
                                     break;
                                 default:
                                     // this leaf is worse.
@@ -206,7 +209,9 @@ namespace smallcanon {
                     }
                 }
 
+                // check whether we're at a node on the best-leaf path
                 const bool on_best_leaf_path = best_leaf.has && stack.size() == best_leaf_lca;
+
                 // continue iterating vertices of present color on stack
                 while (stack.top_vertex() < graph.num_nodes() &&
                        (coloring.get_color(stack.top_vertex()) != stack.top_color() ||
@@ -221,7 +226,10 @@ namespace smallcanon {
                     // if we're backtracking from the best-leaf LCA, decrement prefix length
                     // note that in all other cases, this prefix length won't change, as we're never revisiting
                     // the best leaf path downwards
-                    if(on_best_leaf_path) --best_leaf_lca;
+                    if(on_best_leaf_path) {
+                        --best_leaf_lca;
+                        best_leaf.group_size *= best_leaf.orbits.orbit_size(best_leaf_path[best_leaf_lca]-1);
+                    }
                     stack.pop();
 
                     if(stack.empty()) break;
