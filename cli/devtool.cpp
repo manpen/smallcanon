@@ -73,9 +73,10 @@ int process_instance(const Options& option, DimacsParseResult& instance) {
     auto start = std::chrono::steady_clock::now();
     smallcanon::solver::canonize(graph, coloring, stats);
     auto end = std::chrono::steady_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    auto elapsed = std::chrono::duration<double, std::milli>(end - start).count();
+
     stats.print();
-    std::cout <<"c " << console_bright_blue << "solve_time=" << ms << "ms\n" << console_neutral;
+    std::cout <<"c " << console_bright_blue << "solve_time=" << elapsed << "ms\n" << console_neutral;
 
     return 0;
 }
