@@ -90,12 +90,12 @@ namespace smallcanon {
 
                         if (base_to_coloring.empty())
                             break;
-                        coloring = base_to_coloring.back();
+                        coloring = base_to_coloring.back().copy();
                         is_backtrack = true; // moving backward
                         continue;
                     }
 
-                    base_to_coloring.push_back(coloring);
+                    base_to_coloring.push_back(coloring.copy());
                     base_to_vertex.push_back(0);
                     base_to_col.push_back(col);
                 }
@@ -117,13 +117,13 @@ namespace smallcanon {
 
                     if (base_to_coloring.empty())
                         break;
-                    coloring = base_to_coloring.back();
+                    coloring = base_to_coloring.back().copy();
                     is_backtrack = true; // moving backward
                     continue;
                 }
 
                 // time to actually do some work now
-                coloring = base_to_coloring.back();
+                coloring = base_to_coloring.back().copy();
                 refine::individualize(coloring, base_to_vertex.back());
                 refine::naive::refine(graph, coloring); // TODO needs to take as argument a vertex
                 ++base_to_vertex.back();

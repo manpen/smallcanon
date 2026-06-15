@@ -30,6 +30,7 @@ namespace smallcanon {
         constexpr explicit Coloring(node_t capacity) : storage(capacity) {}
 
         constexpr Coloring(Coloring&&) = default;
+        constexpr Coloring& operator=(Coloring&&) = default;
 
         /// Returns a mutable view of the color buffer.
         constexpr std::span<scolor_t> buffer() noexcept {
@@ -122,6 +123,7 @@ namespace smallcanon {
 
             /// Moves heap storage ownership.
             constexpr ColorStoreHeap(ColorStoreHeap&&) = default;
+            constexpr ColorStoreHeap& operator=(ColorStoreHeap&&) = default;
 
             /// Returns a mutable view of the color buffer.
             constexpr std::span<scolor_t> buffer() noexcept {
@@ -164,6 +166,7 @@ namespace smallcanon {
 
             /// Moves fixed color storage.
             constexpr FixedColorStore(FixedColorStore&&) = default;
+            constexpr FixedColorStore& operator=(FixedColorStore&&) = default;
 
             /// Returns a mutable view of the color buffer.
             constexpr std::span<scolor_t> buffer() noexcept {
