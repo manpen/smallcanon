@@ -67,8 +67,9 @@ int process_instance(const Options& option, DimacsParseResult& instance) {
         }
     }
 
-    smallcanon::solver::canonize(graph, coloring);
-
+    smallcanon::solver::Stats stats;
+    smallcanon::solver::canonize(graph, coloring, stats);
+    stats.print();
 
     return 0;
 }

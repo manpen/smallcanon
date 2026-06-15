@@ -110,6 +110,7 @@ namespace smallcanon {
                     return a.second < b.second;});
             color_t last_col = -1;
             bool    print_col = false;
+            DEBUG_STREAM << "c ";
             for (const auto& [vertex, color] : vertex_with_colors) {
                 if(color != last_col) print_col = !print_col;
                 last_col = color;
@@ -123,7 +124,7 @@ namespace smallcanon {
         /// Prints a color
         void print(const size_t n, const color_t col) const noexcept {
             std::vector<std::pair<node_t, color_t>> vertex_with_colors;
-            DEBUG_STREAM << console_orange;
+            DEBUG_STREAM << "c " << console_orange;
             for(node_t v = 0; v < n; ++v) {
                 if(v >= n) break;
                 if(get_color(v) != col) continue;
