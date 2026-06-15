@@ -4,12 +4,14 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <chrono>
 
 #include "devtool_args.hpp"
 #include "dimacs_parser.hpp"
 #include "smallcanon/adj_matrix.hpp"
 #include "smallcanon/coloring.hpp"
 #include "smallcanon/ir.hpp"
+#include "smallcanon/utility.hpp"
 
 static std::optional<DimacsParseResult> read_instance(const Options& option) {
     if (!option.input) {
@@ -68,8 +70,12 @@ int process_instance(const Options& option, DimacsParseResult& instance) {
     }
 
     smallcanon::solver::Stats stats;
+    auto start = std::chrono::steady_clock::now();
     smallcanon::solver::canonize(graph, coloring, stats);
+    auto end = std::chrono::steady_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     stats.print();
+    std::cout <<"c " << console_bright_blue << "solve_time=" << ms << "ms\n" << console_neutral;
 
     return 0;
 }

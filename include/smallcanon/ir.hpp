@@ -164,7 +164,7 @@ namespace smallcanon {
                             // (1) TODO compare invariants
                             // (2) when invariants equal, actually compare leafs
                             int compare = compare::compare(graph, best_leaf.leaf, coloring, best_leaf.orbits);
-                            std::clog << "c [compare] result=" << compare << std::endl;
+                            DEBUG_STREAM << "c [compare] result=" << compare << std::endl;
 
                             switch(compare) {
                                 case 0: 
@@ -172,7 +172,7 @@ namespace smallcanon {
                                     // TODO jumping to an LCA must purge all "deeper" leafs
                                     ++stats.automorphisms;
                                     backtrack_to = best_leaf_lca;
-                                    std::clog << "c [compare] backtrack_to=" << backtrack_to << std::endl;
+                                    DEBUG_STREAM << "c [compare] backtrack_to=" << backtrack_to << std::endl;
                                     break;
                                 case 1:
                                     DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;;
