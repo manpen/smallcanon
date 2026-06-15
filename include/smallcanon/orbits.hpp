@@ -8,6 +8,9 @@
 
 namespace smallcanon {
     namespace solver {
+
+        typedef double group_order_t;
+
         class Orbits {
             std::vector<node_t> partition;
 

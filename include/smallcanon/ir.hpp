@@ -4,6 +4,8 @@
 
 #include "smallcanon/adj_matrix.hpp"
 #include "smallcanon/coloring.hpp"
+#include "smallcanon/compare_leaves.hpp"
+#include "smallcanon/graph.hpp"
 #include "smallcanon/utility.hpp"
 #include "smallcanon/invariant.hpp"
 #include "smallcanon/orbits.hpp"
@@ -15,8 +17,27 @@
 namespace smallcanon {
     namespace solver {
 
+        template<typename SC>
+            struct Leaf {
+                bool          has = false;
+                Coloring<SC>  leaf;
+                Orbits        orbits;
+                group_order_t group_size = 1;
+
+                explicit Leaf(node_t n)
+                    : leaf(n), orbits(n)
+                {}
+
+                void replace(Coloring<SC>& new_leaf) {
+                    leaf = new_leaf.copy();
+                    group_size = 1;
+                    orbits.clear();
+                    has = true;
+                }
+            };
+
         template<typename SM, typename SC>
-        void canonize(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
+        Coloring<SC> canonize(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
             // TODO add "configuration/result" information
 
             // initial color refinement
@@ -25,17 +46,16 @@ namespace smallcanon {
             coloring.print(n);
 
             // depth-first search
-            bool has_best_leaf;
-            Coloring<SC> best_leaf(n);
+            Leaf<SC> best_leaf(n);
+            
 
-            constexpr size_t NUM_COMP_LEAFS = 1;
-            bool has_comp_leaf[NUM_COMP_LEAFS];
-            // Note: I hate this
-            std::array<Coloring<SC>, NUM_COMP_LEAFS> comp_leaf = {
-                Coloring<SC>(n)
-            };
+            // constexpr size_t NUM_COMP_LEAFS = 1;
+            // bool has_comp_leaf[NUM_COMP_LEAFS];
+            // // Note: I hate this
+            // std::array<Coloring<SC>, NUM_COMP_LEAFS> comp_leaf = {
+            //     Coloring<SC>(n)
+            // };
 
-            Orbits best_leaf_orbits(n);
 
             // TODO: second (or third, ...) orbit partition for additional leafs
             // TODO: make number of additional leaves configurable?
@@ -70,30 +90,47 @@ namespace smallcanon {
                     } else          DEBUG_STREAM << "--- discrete" << std::endl;
 
                     if (discrete) {
-                        if (!has_best_leaf) { // TODO OR we're updating the leaf
-                            // TODO set best_leaf_lca to parent
-
+                        bool this_is_the_best_leaf = false;
+                        if (!best_leaf.has) { // TODO OR we're updating the leaf
+                            // TODO set best_leaf_lca to parent!
+                            // TODO invalidate all comp leafs?
                             // our best leaf orbits have become invalid
-                            best_leaf_orbits.clear();
-                            has_best_leaf = true;
+                            DEBUG_STREAM << "bbbb this is the best-leaf is now" << std::endl;
+                            this_is_the_best_leaf = true;
+                            best_leaf.replace(coloring);
                         }
 
-                        // TODO if this doesn't agree with any already-stored leaf, then...
-                        for (size_t i = 0; i < NUM_COMP_LEAFS; ++i) {
-                            if (!has_comp_leaf[i]) {
-                                // TODO
-                                has_comp_leaf[i] = true;
-                                break;
+
+                        if(!this_is_the_best_leaf) {
+                            // (1) TODO compare invariants
+                            // (2) when invariants equal, actually compare leafs
+                            int compare = compare::compare(graph, best_leaf.leaf, coloring, best_leaf.orbits);
+                            std::clog << "compare: " << compare << std::endl;
+
+                            switch(compare) {
+                                case 0: 
+                                    // TODO leaf agrees with best-leaf? jump to best-leaf LCA
+                                    // TODO jumping to an LCA must purge all "deeper" leafs
+                                    break;
+                                case 1:
+                                    DEBUG_STREAM << "bbbb this is the best-leaf is now" << std::endl;;
+                                    this_is_the_best_leaf = true;
+                                    best_leaf.replace(coloring);
+                                    break;
+                                default:
+                                    // this leaf is worse.
+                                    break;
                             }
+
+                            // TODO if this doesn't agree with any already-stored leaf, then...
+                            // for (size_t i = 0; i < NUM_COMP_LEAFS; ++i) {
+                            //     if (!has_comp_leaf[i]) {
+                            //         // TODO
+                            //         has_comp_leaf[i] = true;
+                            //         break;
+                            //     }
+                            // }
                         }
-
-                        // TODO we found a leaf
-                        // TODO compare to best leaf / comp leaf, potentially update
-                        // TODO maintain orbit partition by creating automorphisms from leaf
-
-                        // TODO leaf agrees with best-leaf? jump to best-leaf LCA
-                        // TODO leaf agrees with comp-leaf? jump to comp-leaf LCA
-                        // TODO jumping to an LCA must purge all "deeper" leafs
 
                         if (base_to_coloring.empty())
                             break;
@@ -110,9 +147,9 @@ namespace smallcanon {
                 }
 
                 // continue iterating vertices of present color on stack
-                while ((base_to_vertex.back() < graph.num_nodes() &&
-                       coloring.get_color(base_to_vertex.back()) != base_to_col.back()) ||
-                       !best_leaf_orbits.is_representative(base_to_vertex.back())) {
+                while (base_to_vertex.back() < graph.num_nodes() &&
+                       (coloring.get_color(base_to_vertex.back()) != base_to_col.back() ||
+                       !best_leaf.orbits.is_representative(base_to_vertex.back()))) {
                     ++base_to_vertex.back();
                 }
 
@@ -146,8 +183,8 @@ namespace smallcanon {
 
                 // TODO compare invariant
             }
-            // TODO create canonical labeling from best leaf
-            return;
+
+            return best_leaf.leaf.copy();
         }
     } // namespace solver
 } // namespace smallcanon
