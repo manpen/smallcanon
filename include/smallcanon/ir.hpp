@@ -19,17 +19,22 @@ namespace smallcanon {
             // TODO add "configuration/result" information
 
             // initial color refinement
-            refine::naive_scalar(graph, coloring);
+            refine::naive::refine(graph, coloring);
+            int n = graph.num_nodes();
+            coloring.print(n);
 
             // depth-first search
             bool has_best_leaf;
-            Coloring<SC> best_leaf;
+            Coloring<SC> best_leaf(n);
 
             constexpr size_t NUM_COMP_LEAFS = 1;
             bool has_comp_leaf[NUM_COMP_LEAFS];
-            Coloring<SC> comp_leaf[NUM_COMP_LEAFS];
+            // Note: I hate this
+            std::array<Coloring<SC>, NUM_COMP_LEAFS> comp_leaf = {
+                Coloring<SC>(n)
+            };
 
-            Orbits best_leaf_orbits(graph.num_nodes());
+            Orbits best_leaf_orbits(n);
 
             // TODO: second (or third, ...) orbit partition for additional leafs
             // TODO: make number of additional leaves configurable?
@@ -37,9 +42,9 @@ namespace smallcanon {
             std::vector<inv_t> base_to_best_leaf_inv;
 
             std::vector<Coloring<SC>> base_to_coloring;
-            std::vector<node_t> base_to_vertex;
-            std::vector<color_t> base_to_col;
-            std::vector<inv_t> base_to_inv;
+            std::vector<node_t>       base_to_vertex;
+            std::vector<color_t>      base_to_col;
+            std::vector<inv_t>        base_to_inv;
 
             // TODO maintain the LCA's
             [[maybe_unused]] size_t best_leaf_lca =
@@ -120,7 +125,7 @@ namespace smallcanon {
                 // time to actually do some work now
                 coloring = base_to_coloring.back();
                 refine::individualize(coloring, base_to_vertex.back());
-                refine::naive_scalar(graph, coloring); // TODO needs to take as argument a vertex
+                refine::naive::refine(graph, coloring); // TODO needs to take as argument a vertex
                 ++base_to_vertex.back();
                 is_backtrack = false; // we're moving forward in the tree
 

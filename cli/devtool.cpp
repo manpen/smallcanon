@@ -9,7 +9,7 @@
 #include "dimacs_parser.hpp"
 #include "smallcanon/adj_matrix.hpp"
 #include "smallcanon/coloring.hpp"
-#include "smallcanon/refine/naive.hpp"
+#include "smallcanon/ir.hpp"
 
 static std::optional<DimacsParseResult> read_instance(const Options& option) {
     if (!option.input) {
@@ -34,12 +34,12 @@ static std::optional<DimacsParseResult> read_instance(const Options& option) {
 }
 
 template<typename G>
-int process_instance(const Options& option, DimacsParseResult instance) {
+int process_instance(const Options& option, DimacsParseResult& instance) {
     using adjmat_t = G;
     using coloring_t = typename smallcanon::MatchedColoring<adjmat_t>::coloring_t;
 
     // fetch instance
-    auto [inp_nodes, inp_edges, inp_colors] = instance;
+    auto& [inp_nodes, inp_edges, inp_colors] = instance;
     const auto nodes = static_cast<smallcanon::node_t>(inp_nodes);
 
     if (nodes > adjmat_t::MAX_NODES) {
@@ -67,12 +67,8 @@ int process_instance(const Options& option, DimacsParseResult instance) {
         }
     }
 
-    smallcanon::refine::naive::refine(graph, coloring);
+    smallcanon::solver::canonize(graph, coloring);
 
-    for (auto u: graph.nodes()) {
-        std::cout << coloring.get_color(u) << ' ';
-    }
-    std::cout << std::endl;
 
     return 0;
 }
@@ -85,11 +81,11 @@ int main(int argc, char **argv) {
     }
     auto option = opt_options.value();
 
-    const auto opt_instance = read_instance(option);
+    auto opt_instance = read_instance(option);
     if (!opt_instance) {
         return 1;
     }
-    const auto instance = *opt_instance;
+    auto instance = *opt_instance;
 
     switch (option.nodes) {
         case NodeLimit::n8:

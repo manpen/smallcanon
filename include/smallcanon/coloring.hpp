@@ -6,10 +6,12 @@
 #include <limits>
 #include <memory>
 #include <span>
+#include <vector>
 
 #include <smallcanon/graph.hpp>
 
 #include "adj_matrix.hpp"
+#include "utility.hpp"
 
 namespace smallcanon {
     /// Coloring maps nodes to colors backed by a configurable storage type.
@@ -76,6 +78,26 @@ namespace smallcanon {
         constexpr bool operator==(const Coloring<SC>& rhs) const noexcept {
             return std::ranges::equal(storage.buffer(), rhs.storage.buffer());
         }
+
+        /// Prints the coloring
+        void print(const int n) const noexcept {
+            std::vector<std::pair<node_t, color_t>> vertex_with_colors;
+            node_t v = 0;
+            for(auto c : buffer()) if(v < n) vertex_with_colors.push_back({v++,c});
+            std::sort(vertex_with_colors.begin(), vertex_with_colors.end(),
+                    [](const auto& a, const auto& b) {
+                    return a.second < b.second;});
+            color_t last_col = -1;
+            bool    print_col = false;
+            for (const auto& [vertex, color] : vertex_with_colors) {
+                if(color != last_col) print_col = !print_col;
+                last_col = color;
+                DEBUG_STREAM
+                    << (print_col? console_orange : console_bright_blue)
+                    << vertex << " " << console_neutral;
+            }
+            DEBUG_STREAM << "\n";
+        }
     };
 
     namespace details {
@@ -112,6 +134,8 @@ namespace smallcanon {
                 const auto *begin = buffer_.get();
                 return std::span(begin, begin + capacity_);
             }
+
+
         };
 
         template<std::unsigned_integral T, node_t Capacity>

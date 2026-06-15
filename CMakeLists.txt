@@ -21,6 +21,7 @@ set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
+
 set(XSIMD_SKIP_INSTALL ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
         xsimd
@@ -37,6 +38,9 @@ add_library(smallcanon INTERFACE
         include/smallcanon/parser.hpp
 )
 add_library(smallcanon::smallcanon ALIAS smallcanon)
+
+option(PRINT_DEBUG "Enable debug logging" OFF)
+
 
 target_compile_features(smallcanon INTERFACE cxx_std_23)
 
@@ -131,4 +135,7 @@ endif ()
 
 if (CLI)
     add_subdirectory(cli)
+    if (PRINT_DEBUG)
+        target_compile_definitions(devtool PRIVATE PRINT_DEBUG)
+    endif()
 endif ()
