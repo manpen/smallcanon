@@ -13,7 +13,7 @@ namespace smallcanon {
         // There may be no node i >= graph.num_nodes() with deg(i) > 0.
         template<typename SC>
         void individualize(Coloring<SC>& coloring, node_t v) {
-            // TODO individualize v in coloring
+            coloring.set_color(v, coloring.first_available_color());
         }
     } // namespace refine
 } // namespace smallcanon

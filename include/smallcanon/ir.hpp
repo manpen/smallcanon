@@ -4,6 +4,7 @@
 
 #include "smallcanon/adj_matrix.hpp"
 #include "smallcanon/coloring.hpp"
+#include "smallcanon/utility.hpp"
 #include "smallcanon/invariant.hpp"
 #include "smallcanon/orbits.hpp"
 #include "smallcanon/permutation.hpp"
@@ -57,10 +58,16 @@ namespace smallcanon {
 
             bool is_backtrack = false;
             while (true) {
-
+                DEBUG_STREAM << "working at depth " << base_to_vertex.size() << " on " << std::endl;
+                coloring.print(n);
                 // if we're not coming from a backtrack, select new color and put it on stack
                 if (!is_backtrack) {
-                    auto [col, discrete] = selector::select_first(graph, coloring);
+                    auto selector_result = selector::select_first(graph, coloring);
+                    const bool discrete = !selector_result.has_value();
+                    if(!discrete) {
+                        DEBUG_STREAM << "--- selected " << selector_result.value() << std::endl;
+                        coloring.print(n, selector_result.value());
+                    } else          DEBUG_STREAM << "--- discrete" << std::endl;
 
                     if (discrete) {
                         if (!has_best_leaf) { // TODO OR we're updating the leaf
@@ -93,22 +100,25 @@ namespace smallcanon {
                         coloring = base_to_coloring.back().copy();
                         is_backtrack = true; // moving backward
                         continue;
+                    } else {
+                        const color_t col = selector_result.value();
+                        DEBUG_STREAM << ">>>>pushing stack vertex_id=" << 0 << ", col=" << col << std::endl;
+                        base_to_coloring.push_back(coloring.copy());
+                        base_to_vertex.push_back(0);
+                        base_to_col.push_back(col);
                     }
-
-                    base_to_coloring.push_back(coloring.copy());
-                    base_to_vertex.push_back(0);
-                    base_to_col.push_back(col);
                 }
 
                 // continue iterating vertices of present color on stack
-                while (base_to_vertex.back() < graph.num_nodes() &&
-                       coloring.get_color(base_to_vertex.back()) != base_to_col.back() &&
+                while ((base_to_vertex.back() < graph.num_nodes() &&
+                       coloring.get_color(base_to_vertex.back()) != base_to_col.back()) ||
                        !best_leaf_orbits.is_representative(base_to_vertex.back())) {
                     ++base_to_vertex.back();
                 }
 
                 // no more vertex left to individualize? we need to backtrack
                 if (base_to_vertex.back() == graph.num_nodes()) {
+                    DEBUG_STREAM << "<<<<popping stack exhausted col=" << base_to_col.back() << std::endl;
                     // TODO if we're backtracking from the best-leaf LCA, decrement it
 
                     base_to_coloring.pop_back();
@@ -122,10 +132,15 @@ namespace smallcanon {
                     continue;
                 }
 
+                assert(coloring.get_color(base_to_vertex.back()) == base_to_col.back());
                 // time to actually do some work now
                 coloring = base_to_coloring.back().copy();
+                DEBUG_STREAM << "iiii individualize vertex=" << base_to_vertex.back() << std::endl;
                 refine::individualize(coloring, base_to_vertex.back());
+                coloring.print(n);
+                DEBUG_STREAM << "rrrr refining" << std::endl;
                 refine::naive::refine(graph, coloring); // TODO needs to take as argument a vertex
+                coloring.print(n);
                 ++base_to_vertex.back();
                 is_backtrack = false; // we're moving forward in the tree
 

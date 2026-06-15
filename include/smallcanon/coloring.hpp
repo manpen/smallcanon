@@ -80,8 +80,28 @@ namespace smallcanon {
             return std::ranges::equal(storage.buffer(), rhs.storage.buffer());
         }
 
+
+        color_t first_available_color() {
+            const auto& colors = buffer();
+            const node_t n     = capacity();
+
+            // TODO this is super horrible
+            std::vector<char> used(static_cast<std::size_t>(n), false);
+
+            for (color_t c : colors) {
+                used[static_cast<std::size_t>(c)] = true;
+            }
+
+            color_t first_available_color = 0;
+            while (used[static_cast<std::size_t>(first_available_color)]) {
+                ++first_available_color;
+            }
+
+            return first_available_color;
+        }
+
         /// Prints the coloring
-        void print(const int n) const noexcept {
+        void print(const size_t n) const noexcept {
             std::vector<std::pair<node_t, color_t>> vertex_with_colors;
             node_t v = 0;
             for(auto c : buffer()) if(v < n) vertex_with_colors.push_back({v++,c});
@@ -97,6 +117,19 @@ namespace smallcanon {
                     << (print_col? console_orange : console_bright_blue)
                     << vertex << " " << console_neutral;
             }
+            DEBUG_STREAM << "\n";
+        }
+
+        /// Prints a color
+        void print(const size_t n, const color_t col) const noexcept {
+            std::vector<std::pair<node_t, color_t>> vertex_with_colors;
+            DEBUG_STREAM << console_orange;
+            for(node_t v = 0; v < n; ++v) {
+                if(v >= n) break;
+                if(get_color(v) != col) continue;
+                DEBUG_STREAM << v << " ";
+            }
+            DEBUG_STREAM << console_neutral;
             DEBUG_STREAM << "\n";
         }
     };
