@@ -4,6 +4,7 @@ SET(SMALL_CANON_TESTS
         adj_matrix
         adj_matrix_storage
         bitspan
+        canon
         coloring
         parser
         refine
@@ -48,4 +49,3 @@ else ()
 
     gtest_discover_tests(smallcanon_test)
 endif ()
-
