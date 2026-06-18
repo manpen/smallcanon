@@ -9,7 +9,7 @@
 namespace smallcanon {
     namespace solver {
 
-        typedef double group_order_t;
+        using group_order_t = double;
 
         class Orbits {
             std::vector<node_t> partition;
@@ -21,13 +21,11 @@ namespace smallcanon {
                 std::ranges::fill(partition_sz.begin(), partition_sz.end(), 1);
             }
 
-            Orbits(size_t num_nodes) {
-                partition.resize(num_nodes);
-                partition_sz.resize(num_nodes);
+            constexpr Orbits(size_t num_nodes) : partition(num_nodes, 0), partition_sz(num_nodes, 0) {
                 clear();
             }
 
-            node_t get_representative(node_t v) {
+            [[nodiscard]] constexpr node_t get_representative(node_t v) noexcept {
                 assert(v < partition.size());
                 node_t repr = v;
                 while (repr != partition[repr])
@@ -37,22 +35,22 @@ namespace smallcanon {
             }
 
 
-            bool is_representative(node_t v) {
+            [[nodiscard]] constexpr bool is_representative(node_t v) noexcept {
                 assert(v < partition.size());
                 return v == get_representative(v);
             }
 
-            size_t orbit_size(node_t v) {
+            [[nodiscard]] constexpr size_t orbit_size(node_t v) noexcept {
                 assert(v < partition.size());
                 return partition_sz[get_representative(v)];
             }
 
-            void union_orbits(node_t v1, node_t v2) {
+            constexpr void union_orbits(const node_t v1, const node_t v2) noexcept {
                 assert(v1 < partition.size());
                 assert(v2 < partition.size());
                 const node_t repr1 = get_representative(v1);
                 const node_t repr2 = get_representative(v2);
-                if (repr1 < repr2) {
+                if (partition_sz[repr1] < partition_sz[repr2]) {
                     partition[repr2] = repr1;
                     partition_sz[repr1] += partition_sz[repr2];
                 } else if (repr2 > repr1) {
