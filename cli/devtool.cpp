@@ -1,10 +1,10 @@
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <chrono>
 
 #include "devtool_args.hpp"
 #include "dimacs_parser.hpp"
@@ -54,8 +54,6 @@ int process_instance(const Options& option, DimacsParseResult& instance) {
     auto graph = adjmat_t(nodes);
     auto coloring = coloring_t{nodes};
     {
-
-
         for (auto [u, v]: inp_edges) {
             if (u == v) {
                 std::cerr << "Found self-loop on node " << u << std::endl;
@@ -76,7 +74,7 @@ int process_instance(const Options& option, DimacsParseResult& instance) {
     auto elapsed = std::chrono::duration<double, std::milli>(end - start).count();
 
     stats.print();
-    std::cout <<"c " << console_bright_blue << "solve_time=" << elapsed << "ms\n" << console_neutral;
+    std::cout << "c " << console_bright_blue << "solve_time=" << elapsed << "ms\n" << console_neutral;
 
     return 0;
 }

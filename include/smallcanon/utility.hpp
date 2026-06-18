@@ -12,7 +12,10 @@
 #define console_neutral "\033[0m"
 
 #ifdef PRINT_DEBUG
-    #define DEBUG_STREAM std::clog
+#define DEBUG_STREAM std::clog
 #else
-    #define DEBUG_STREAM if (true) {} else std::clog
+#define DEBUG_STREAM                                                                                                   \
+    if (true) {                                                                                                        \
+    } else                                                                                                             \
+        std::clog
 #endif

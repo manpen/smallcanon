@@ -53,10 +53,10 @@ namespace smallcanon {
                 const node_t repr1 = get_representative(v1);
                 const node_t repr2 = get_representative(v2);
                 if (repr1 < repr2) {
-                    partition[repr2]     = repr1;
+                    partition[repr2] = repr1;
                     partition_sz[repr1] += partition_sz[repr2];
                 } else if (repr2 > repr1) {
-                    partition[repr1]     = repr2;
+                    partition[repr1] = repr2;
                     partition_sz[repr2] += partition_sz[repr1];
                 }
             }

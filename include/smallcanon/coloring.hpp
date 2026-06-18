@@ -83,12 +83,12 @@ namespace smallcanon {
 
         color_t first_available_color() {
             const auto& colors = buffer();
-            const node_t n     = capacity();
+            const node_t n = capacity();
 
             // TODO this is super horrible
             std::vector<char> used(static_cast<std::size_t>(n), false);
 
-            for (color_t c : colors) {
+            for (color_t c: colors) {
                 used[static_cast<std::size_t>(c)] = true;
             }
 
@@ -104,19 +104,19 @@ namespace smallcanon {
         void print(const size_t n) const noexcept {
             std::vector<std::pair<node_t, color_t>> vertex_with_colors;
             node_t v = 0;
-            for(auto c : buffer()) if(v < n) vertex_with_colors.push_back({v++,c});
+            for (auto c: buffer())
+                if (v < n)
+                    vertex_with_colors.push_back({v++, c});
             std::sort(vertex_with_colors.begin(), vertex_with_colors.end(),
-                    [](const auto& a, const auto& b) {
-                    return a.second < b.second;});
+                      [](const auto& a, const auto& b) { return a.second < b.second; });
             color_t last_col = -1;
-            bool    print_col = false;
+            bool print_col = false;
             DEBUG_STREAM << "c ";
-            for (const auto& [vertex, color] : vertex_with_colors) {
-                if(color != last_col) print_col = !print_col;
+            for (const auto& [vertex, color]: vertex_with_colors) {
+                if (color != last_col)
+                    print_col = !print_col;
                 last_col = color;
-                DEBUG_STREAM
-                    << (print_col? console_orange : console_bright_blue)
-                    << vertex << " " << console_neutral;
+                DEBUG_STREAM << (print_col ? console_orange : console_bright_blue) << vertex << " " << console_neutral;
             }
             DEBUG_STREAM << "\n";
         }
@@ -125,9 +125,11 @@ namespace smallcanon {
         void print(const size_t n, const color_t col) const noexcept {
             std::vector<std::pair<node_t, color_t>> vertex_with_colors;
             DEBUG_STREAM << "c " << console_orange;
-            for(node_t v = 0; v < n; ++v) {
-                if(v >= n) break;
-                if(get_color(v) != col) continue;
+            for (node_t v = 0; v < n; ++v) {
+                if (v >= n)
+                    break;
+                if (get_color(v) != col)
+                    continue;
                 DEBUG_STREAM << v << " ";
             }
             DEBUG_STREAM << console_neutral;
@@ -170,8 +172,6 @@ namespace smallcanon {
                 const auto *begin = buffer_.get();
                 return std::span(begin, begin + capacity_);
             }
-
-
         };
 
         template<std::unsigned_integral T, node_t Capacity>
