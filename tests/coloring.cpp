@@ -162,3 +162,24 @@ TYPED_TEST(ColoringTests, CopyPreservesColorsAndIsIndependent) {
     EXPECT_EQ(coloring.get_color(0), 1);
     EXPECT_EQ(copied.get_color(0), 2);
 }
+
+TYPED_TEST(ColoringTests, ComputeInverseOfDiscreteMapsColorsBackToNodes) {
+    auto coloring = TypeParam::make_coloring();
+
+    constexpr smallcanon::node_t n = 6;
+    coloring.set_color(0, 4);
+    coloring.set_color(1, 2);
+    coloring.set_color(2, 0);
+    coloring.set_color(3, 5);
+    coloring.set_color(4, 1);
+    coloring.set_color(5, 3);
+
+    const auto inverse = coloring.compute_inverse_of_discrete(n);
+
+    EXPECT_EQ(inverse.get_color(0), 2);
+    EXPECT_EQ(inverse.get_color(1), 4);
+    EXPECT_EQ(inverse.get_color(2), 1);
+    EXPECT_EQ(inverse.get_color(3), 5);
+    EXPECT_EQ(inverse.get_color(4), 0);
+    EXPECT_EQ(inverse.get_color(5), 3);
+}

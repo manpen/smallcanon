@@ -53,6 +53,17 @@ namespace smallcanon {
             return static_cast<color_t>(storage.buffer()[u]);
         }
 
+        /// Returns the `lab` equivalent of a discrete coloring.
+        [[nodiscard]] Coloring compute_inverse_of_discrete(node_t n) const noexcept {
+            auto lab = Coloring(n);
+            std::fill_n(lab.buffer().begin(), lab.buffer().size(), n);
+            for (node_t u = 0; u < n; ++u) {
+                const color_t old = lab.set_color(get_color(u), u);
+                assert(old == n);
+            }
+            return lab;
+        }
+
         /// Sets the color of node u and returns the previous color.
         /// Warning: Only colors in the range [0, capacity) are guaranteed to be storable,
         /// because storage may use a type smaller than color_t internally.
