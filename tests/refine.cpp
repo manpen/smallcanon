@@ -186,13 +186,9 @@ permute_graph(auto&& rng, const smallcanon::AdjMatrix<SM>& graph, const smallcan
     auto mapping = graph.nodes() | std::ranges::to<std::vector<smallcanon::node_t>>();
     std::ranges::shuffle(mapping, rng);
 
-    auto mapped_graph = smallcanon::AdjMatrix<SM>(graph.num_nodes());
+    auto mapped_graph = graph.permuted({mapping});
+
     auto mapped_color = coloring.copy();
-
-    mapped_graph.add_edges(graph.edges() | std::views::transform([&](const auto& e) {
-                               return std::make_pair(mapping[e.first], mapping[e.second]);
-                           }));
-
     for (auto u: graph.nodes()) {
         mapped_color.set_color(mapping[u], coloring.get_color(u));
     }

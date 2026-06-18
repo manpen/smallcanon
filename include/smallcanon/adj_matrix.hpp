@@ -113,6 +113,19 @@ namespace smallcanon {
             }
         }
 
+        /// Returns a rearranged copy of the graph. Assumes that new_id_of is a permutation of [0, n).
+        [[nodiscard]] constexpr AdjMatrix permuted(std::span<const node_t> new_id_of) const noexcept {
+            assert(new_id_of.size() == num_nodes());
+            auto mapped = AdjMatrix(num_nodes());
+
+            for (const auto& [u, v]: edges()) {
+                bool already_exists = mapped.add_edge(new_id_of[u], new_id_of[v]);
+                assert(!already_exists);
+            }
+
+            return mapped;
+        }
+
         /// Adds edge {u, v} and returns whether it was already present.
         constexpr bool add_edge(node_t u, node_t v) noexcept {
             assert(u < n_);
