@@ -33,7 +33,8 @@ namespace {
 
         template<typename SM, typename SC>
         static void refine(const smallcanon::AdjMatrix<SM>& graph, smallcanon::Coloring<SC>& coloring) {
-            smallcanon::refine::avx512intrin::refine(graph, coloring);
+            smallcanon::refine::avx512intrin::AVX512<smallcanon::AdjMatrix<SM>> refine{graph};
+            refine.refine(coloring);
         }
     };
 #endif

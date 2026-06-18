@@ -86,6 +86,19 @@ namespace smallcanon {
             return storage.row(u);
         }
 
+        /// Returns a mutable view of the backing words for row u. In contrast to `row(u)`,
+        /// u may exceed the number of nodes in the graphs, but not the storage capacity.
+        /// DANGER! Uphold all invariants
+        [[nodiscard]] constexpr std::span<word_t> row_upto_capacity(node_t u) noexcept {
+            return storage.row(u);
+        }
+
+        /// Returns a read-only view of the backing words for row u. In contrast to `row(u)`,
+        /// u may exceed the number of nodes in the graphs, but not the storage capacity.
+        [[nodiscard]] constexpr std::span<const word_t> row_upto_capacity(node_t u) const noexcept {
+            return storage.row(u);
+        }
+
         /// Iterates over all undirected edges, yielding each edge {u,v} only once with u <= v.
         [[nodiscard]] std::generator<edge_t> edges() const noexcept {
             for (node_t u: nodes()) {
