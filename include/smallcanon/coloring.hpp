@@ -102,6 +102,7 @@ namespace smallcanon {
 
         /// Prints the coloring
         void print(const size_t n) const noexcept {
+#ifdef DEBUG_STREAM
             std::vector<std::pair<node_t, color_t>> vertex_with_colors;
             node_t v = 0;
             for (auto c: buffer())
@@ -119,10 +120,12 @@ namespace smallcanon {
                 DEBUG_STREAM << (print_col ? console_orange : console_bright_blue) << vertex << " " << console_neutral;
             }
             DEBUG_STREAM << "\n";
+#endif
         }
 
         /// Prints a color
         void print(const size_t n, const color_t col) const noexcept {
+#ifdef DEBUG_STREAM
             std::vector<std::pair<node_t, color_t>> vertex_with_colors;
             DEBUG_STREAM << "c " << console_orange;
             for (node_t v = 0; v < n; ++v) {
@@ -134,6 +137,7 @@ namespace smallcanon {
             }
             DEBUG_STREAM << console_neutral;
             DEBUG_STREAM << "\n";
+#endif
         }
     };
 
