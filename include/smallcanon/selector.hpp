@@ -10,13 +10,25 @@ namespace smallcanon {
     namespace selector {
 
         // find the first non-trivial color if it exists, otherwise return false
-        template<typename SM, typename SC>
-        std::pair<color_t, bool> select_first(const AdjMatrix<SM>& graph, Coloring<SC>& coloring) {
-            for (node_t v = 0; v < graph.num_nodes(); ++v) {
-                if (coloring.get_color(v)) {
-                    // TODO if non-trivial, return color
+        template<class SM, class SC>
+        std::optional<color_t> select_first(const AdjMatrix<SM>& graph, const Coloring<SC>& coloring) {
+            const auto n = graph.num_nodes();
+            std::vector<node_t> counts(n, 0); // TODO horribly inefficient
+
+            for (node_t v = 0; v < n; ++v) {
+                const auto color = coloring.get_color(v);
+                assert(color >= 0);
+                assert(color < n);
+                ++counts[color];
+            }
+
+            for (color_t color = 0; color < n; ++color) {
+                if (counts[color] >= 2) {
+                    return color;
                 }
             }
+
+            return std::nullopt;
         }
 
     } // namespace selector
