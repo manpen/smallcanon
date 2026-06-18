@@ -11,15 +11,20 @@
 #include "smallcanon/parser.hpp"
 
 namespace {
-    template<typename Graph>
+    template<typename Graph, typename Refine>
     struct CanonCase {
         using graph_t = Graph;
         using coloring_t = typename smallcanon::MatchedColoring<graph_t>::coloring_t;
+        using refine_t = Refine;
 
         static graph_t make_graph(smallcanon::node_t n, const std::vector<smallcanon::edge_t>& edges = {}) {
             graph_t graph(n);
             graph.add_edges(edges);
             return graph;
+        }
+
+        static auto make_solver(const graph_t& graph) {
+            return smallcanon::solver::Solver<graph_t, refine_t>(graph);
         }
     };
 
@@ -30,8 +35,13 @@ namespace {
         using coloring_t = typename T::coloring_t;
     };
 
-    using CanonTypes = testing::Types<CanonCase<smallcanon::AdjMatrix8>, CanonCase<smallcanon::AdjMatrix16>,
-                                      CanonCase<smallcanon::AdjMatrixHeap>>;
+    using CanonTypes = testing::Types<
+#if XSIMD_WITH_AVX512F
+            CanonCase<smallcanon::AdjMatrix8, smallcanon::refine::avx512intrin::AVX512<smallcanon::AdjMatrix8>>,
+#endif
+            CanonCase<smallcanon::AdjMatrix8, smallcanon::refine::Naive<smallcanon::AdjMatrix8>>,
+            CanonCase<smallcanon::AdjMatrix16, smallcanon::refine::Naive<smallcanon::AdjMatrix16>>,
+            CanonCase<smallcanon::AdjMatrixHeap, smallcanon::refine::Naive<smallcanon::AdjMatrixHeap>>>;
     TYPED_TEST_SUITE(CanonTests, CanonTypes);
 
     template<typename SC>
@@ -89,18 +99,18 @@ TYPED_TEST(CanonTests, AlreadyDiscreteColoringReturnsDiscreteLeafWithoutSearch) 
 }
 
 TYPED_TEST(CanonTests, CanonicalAdjacencyIsInvariantUnderNodePermutation) {
-    using Coloring = typename TestFixture::coloring_t;
+    using coloring_t = typename TestFixture::coloring_t;
 
     const auto graph = TypeParam::make_graph(6, {{0, 1}, {0, 2}, {1, 2}, {1, 3}, {2, 4}, {4, 5}});
     const std::vector<smallcanon::node_t> new_id_of{2, 5, 1, 4, 0, 3};
     const auto mapped_graph = graph.permuted(new_id_of);
 
-    Coloring coloring(graph.num_nodes());
+    coloring_t coloring(graph.num_nodes());
 
-    auto solver = smallcanon::solver::Solver(graph);
+    auto solver = TypeParam::make_solver(graph);
     const auto leaf = solver.canonize(coloring);
 
-    Coloring mapped_coloring(mapped_graph.num_nodes());
+    coloring_t mapped_coloring(mapped_graph.num_nodes());
 
     auto mapped_solver = smallcanon::solver::Solver(mapped_graph);
     const auto mapped_leaf = mapped_solver.canonize(mapped_coloring);
@@ -163,10 +173,10 @@ TYPED_TEST(CanonTests, InvarianceNodePermutation) {
                             auto [shuffled_graph, shuffled_coloring, mapping] = permute_graph(rng, graph, coloring);
                             (void) mapping;
 
-                            auto solver = smallcanon::solver::Solver(graph);
+                            auto solver = TypeParam::make_solver(graph);
                             const auto canon = solver.canonize(coloring);
 
-                            auto solver_shuffled = smallcanon::solver::Solver(shuffled_graph);
+                            auto solver_shuffled = TypeParam::make_solver(shuffled_graph);
                             const auto canon_shuffled = solver_shuffled.canonize(shuffled_coloring);
 
                             ASSERT_EQ(canonical_adjacency(graph, canon),
