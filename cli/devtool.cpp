@@ -67,13 +67,16 @@ int process_instance(const Options& option, DimacsParseResult& instance) {
         }
     }
 
-    smallcanon::solver::Stats stats;
+    using color_refine_t = smallcanon::refine::Naive<adjmat_t>;
+    smallcanon::solver::Solver<adjmat_t, color_refine_t> solver(graph);
+
     auto start = std::chrono::steady_clock::now();
-    smallcanon::solver::canonize(graph, coloring, stats);
+    solver.canonize(coloring);
     auto end = std::chrono::steady_clock::now();
+
     auto elapsed = std::chrono::duration<double, std::milli>(end - start).count();
 
-    stats.print();
+    solver.get_stats().print();
     std::cout << "c " << console_bright_blue << "solve_time=" << elapsed << "ms\n" << console_neutral;
 
     return 0;

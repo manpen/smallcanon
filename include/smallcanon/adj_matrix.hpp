@@ -7,6 +7,7 @@
 #include <concepts>
 #include <initializer_list>
 #include <memory>
+#include <ranges>
 #include <span>
 
 #include <smallcanon/bitspan.hpp>
@@ -38,6 +39,12 @@ namespace smallcanon {
         constexpr explicit AdjMatrix(node_t num_nodes) : storage(num_nodes), n_(num_nodes) {
             assert(storage.row_capacity() % storage_t::BITS_PER_WORD == 0);
             assert(num_nodes <= storage.row_capacity());
+        }
+
+        [[nodiscard]] constexpr AdjMatrix copy() const noexcept {
+            AdjMatrix copied(n_);
+            std::ranges::copy(buffer().begin(), buffer().end(), copied.buffer().begin());
+            return copied;
         }
 
         /// Returns the number of nodes

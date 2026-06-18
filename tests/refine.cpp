@@ -21,7 +21,8 @@ namespace {
 
         template<typename SM, typename SC>
         static void refine(const smallcanon::AdjMatrix<SM>& graph, smallcanon::Coloring<SC>& coloring) {
-            smallcanon::refine::naive::refine(graph, coloring);
+            smallcanon::refine::Naive<smallcanon::AdjMatrix<SM>> r{graph};
+            r.refine(coloring);
         }
     };
 

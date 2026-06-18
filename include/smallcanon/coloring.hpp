@@ -19,8 +19,11 @@ namespace smallcanon {
     /// color_t internally.
     template<typename Storage>
     class Coloring {
+    public:
         using storage_t = Storage;
         using scolor_t = typename storage_t::scolor_t;
+
+    private:
         storage_t storage;
 
     public:

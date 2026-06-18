@@ -25,8 +25,8 @@ void bm_canon(benchmark::State& state) {
 
         auto& inst = instances[idx];
 
-        smallcanon::solver::Stats stats;
-        const auto res = smallcanon::solver::canonize(inst.graph, inst.coloring, stats);
+        auto solver = smallcanon::solver::Solver(inst.graph);
+        const auto res = solver.canonize(inst.coloring);
 
         benchmark::DoNotOptimize(res);
     }

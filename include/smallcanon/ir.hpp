@@ -9,6 +9,7 @@
 #include "smallcanon/invariant.hpp"
 #include "smallcanon/orbits.hpp"
 #include "smallcanon/permutation.hpp"
+#include "smallcanon/refine/avx512intrin.hpp"
 #include "smallcanon/refine/individualize.hpp"
 #include "smallcanon/refine/naive.hpp"
 #include "smallcanon/selector.hpp"
@@ -46,7 +47,7 @@ namespace smallcanon {
             size_t automorphisms = 0;
             group_order_t group_size = 1;
 
-            void print() {
+            void print() const {
                 std::clog << "c " << console_bright_blue << "------------------------------------------------"
                           << console_neutral << std::endl;
                 std::clog << "c " << "ir_nodes_visited=" << ir_nodes_visited << std::endl;
@@ -67,14 +68,16 @@ namespace smallcanon {
             };
 
             std::vector<Element> stack{};
+            node_t capacity;
 
         public:
-            constexpr explicit SearchStack(node_t capacity) {
+            constexpr explicit SearchStack(node_t capacity) : capacity(capacity) {
                 stack.reserve(capacity);
             }
 
 
             constexpr void push(Coloring<SC>& coloring, color_t selector_col, node_t vertex) {
+                assert(stack.size() < static_cast<size_t>(capacity));
                 stack.emplace_back(std::move(coloring.copy()), vertex, selector_col);
             }
 
@@ -117,155 +120,181 @@ namespace smallcanon {
             }
         };
 
-        template<typename SM, typename SC>
-        Coloring<SC> canonize(const AdjMatrix<SM>& graph, Coloring<SC>& coloring, Stats& stats) {
-            // TODO add "configuration/result" information
+        template<typename Graph, typename Refine = refine::Naive<Graph>>
+        class Solver {
+        public:
+            using graph_t = Graph;
+            using coloring_t = MatchedColoring<graph_t>::coloring_t;
+            using leaf_t = Leaf<typename coloring_t::storage_t>;
+            using stack_t = SearchStack<typename coloring_t::storage_t>;
+            using refine_t = Refine;
 
-            // initial color refinement
-            refine::naive::refine(graph, coloring);
-            const node_t n = graph.num_nodes();
-            coloring.print(n);
+        private:
+            Stats stats{};
+            graph_t graph;
 
-            // best leaf found so far
-            Leaf<SC> best_leaf(n);
-            std::vector<node_t> best_leaf_path;
-            // length of prefix in common with best-leaf path
-            size_t best_leaf_lca = 0;
+        public:
+            explicit Solver(const graph_t& graph) : graph(graph.copy()) {}
 
-            // TODO invariant
-            // std::vector<inv_t> base_to_best_leaf_inv;
+            coloring_t canonize(coloring_t& coloring) {
+                // TODO add "configuration/result" information
 
-            // depth-first search state
-            SearchStack<SC> stack{graph.num_nodes()};
+                // initial color refinement
+                auto refine = refine_t{graph};
 
-            // additional comparison leaves and orbit partitions
-            // constexpr size_t NUM_COMP_LEAFS = 1;
-            // bool has_comp_leaf[NUM_COMP_LEAFS];
-            // // Note: I hate this
-            // std::array<Coloring<SC>, NUM_COMP_LEAFS> comp_leaf = {
-            //     Coloring<SC>(n)
-            // };
+                refine.refine(coloring);
 
-            // TODO save last place in-common with "best-leaf-path"
-            // TODO so that we can jump there immediately when leaf matches best-leaf
-
-            bool is_backtrack = false;
-            while (true) {
-                DEBUG_STREAM << "c [stack] at depth " << stack.size() << " on " << std::endl;
+                const node_t n = graph.num_nodes();
                 coloring.print(n);
-                // if we're not coming from a backtrack, select new color and put it on stack
-                if (!is_backtrack) {
-                    auto selector_result = selector::select_first(graph, coloring);
-                    const bool discrete = !selector_result.has_value();
-                    if (!discrete) {
-                        DEBUG_STREAM << "c [select] selected " << selector_result.value() << std::endl;
-                        coloring.print(n, selector_result.value());
-                    } else {
-                        DEBUG_STREAM << "c [select] discrete" << std::endl;
-                    }
 
-                    if (discrete) {
-                        size_t backtrack_to = stack.size();
-                        if (!best_leaf.has_value) { // TODO OR we're updating the leaf
-                            // TODO set best_leaf_lca to parent!
-                            // TODO invalidate all comp leafs?
-                            // our best leaf orbits have become invalid
-                            DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
-                            best_leaf.replace(coloring);
-                            best_leaf_lca = stack.size();
-                            stack.copy_path_into(best_leaf_path);
+                // best leaf found so far
+                leaf_t best_leaf(n);
+                std::vector<node_t> best_leaf_path;
+                // length of prefix in common with best-leaf path
+                size_t best_leaf_lca = 0;
+
+                // TODO invariant
+                // std::vector<inv_t> base_to_best_leaf_inv;
+
+                // depth-first search state
+                stack_t stack{graph.num_nodes()};
+
+                // additional comparison leaves and orbit partitions
+                // constexpr size_t NUM_COMP_LEAFS = 1;
+                // bool has_comp_leaf[NUM_COMP_LEAFS];
+                // // Note: I hate this
+                // std::array<Coloring<SC>, NUM_COMP_LEAFS> comp_leaf = {
+                //     Coloring<SC>(n)
+                // };
+
+                // TODO save last place in-common with "best-leaf-path"
+                // TODO so that we can jump there immediately when leaf matches best-leaf
+
+                bool is_backtrack = false;
+                while (true) {
+                    DEBUG_STREAM << "c [stack] at depth " << stack.size() << " on " << std::endl;
+                    coloring.print(n);
+                    // if we're not coming from a backtrack, select new color and put it on stack
+                    if (!is_backtrack) {
+                        auto selector_result = selector::select_first(graph, coloring);
+                        const bool discrete = !selector_result.has_value();
+                        if (!discrete) {
+                            DEBUG_STREAM << "c [select] selected " << selector_result.value() << std::endl;
+                            coloring.print(n, selector_result.value());
                         } else {
-                            // (1) TODO compare invariants
-                            // (2) when invariants equal, actually compare leafs
-                            const auto compare = compare::compare(graph, best_leaf.leaf, coloring, best_leaf.orbits);
+                            DEBUG_STREAM << "c [select] discrete" << std::endl;
+                        }
 
-                            if (compare == std::strong_ordering::equal) {
-                                // TODO leaf agrees with best-leaf? jump to best-leaf LCA
-                                // TODO jumping to an LCA must purge all "deeper" leafs
-                                ++stats.automorphisms;
-                                backtrack_to = best_leaf_lca;
-                                DEBUG_STREAM << "c [compare] backtrack_to=" << backtrack_to << std::endl;
-                            } else if (compare == std::strong_ordering::greater) {
+                        if (discrete) {
+                            size_t backtrack_to = stack.size();
+                            if (!best_leaf.has_value) { // TODO OR we're updating the leaf
+                                // TODO set best_leaf_lca to parent!
+                                // TODO invalidate all comp leafs?
+                                // our best leaf orbits have become invalid
                                 DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
-                                ++stats.best_leaf_update;
                                 best_leaf.replace(coloring);
                                 best_leaf_lca = stack.size();
                                 stack.copy_path_into(best_leaf_path);
+                            } else {
+                                // (1) TODO compare invariants
+                                // (2) when invariants equal, actually compare leafs
+                                const auto compare =
+                                        compare::compare(graph, best_leaf.leaf, coloring, best_leaf.orbits);
+
+                                if (compare == std::strong_ordering::equal) {
+                                    // TODO leaf agrees with best-leaf? jump to best-leaf LCA
+                                    // TODO jumping to an LCA must purge all "deeper" leafs
+                                    ++stats.automorphisms;
+                                    backtrack_to = best_leaf_lca;
+                                    DEBUG_STREAM << "c [compare] backtrack_to=" << backtrack_to << std::endl;
+                                } else if (compare == std::strong_ordering::greater) {
+                                    DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
+                                    ++stats.best_leaf_update;
+                                    best_leaf.replace(coloring);
+                                    best_leaf_lca = stack.size();
+                                    stack.copy_path_into(best_leaf_path);
+                                }
+
+                                // TODO if this doesn't agree with any already-stored leaf, then...
+                                // for (size_t i = 0; i < NUM_COMP_LEAFS; ++i) {
+                                //     if (!has_comp_leaf[i]) {
+                                //         // TODO
+                                //         has_comp_leaf[i] = true;
+                                //         break;
+                                //     }
+                                // }
                             }
 
-                            // TODO if this doesn't agree with any already-stored leaf, then...
-                            // for (size_t i = 0; i < NUM_COMP_LEAFS; ++i) {
-                            //     if (!has_comp_leaf[i]) {
-                            //         // TODO
-                            //         has_comp_leaf[i] = true;
-                            //         break;
-                            //     }
-                            // }
+                            stack.pop_to_level(backtrack_to);
+                            if (stack.empty())
+                                break;
+                            coloring = stack.top_coloring().copy();
+                            is_backtrack = true; // moving backward
+                            continue;
                         }
 
-                        stack.pop_to_level(backtrack_to);
+
+                        const color_t col = selector_result.value();
+                        DEBUG_STREAM << "c [stack] push vertex_id=" << 0 << ", col=" << col << std::endl;
+                        stack.push(coloring, col, 0);
+                    }
+
+                    // check whether we're at a node on the best-leaf path
+                    const bool on_best_leaf_path = best_leaf.has_value && stack.size() == best_leaf_lca;
+
+                    // continue iterating vertices of present color on stack
+                    while (stack.top_vertex() < graph.num_nodes() &&
+                           (coloring.get_color(stack.top_vertex()) != stack.top_color() ||
+                            (on_best_leaf_path && !best_leaf.orbits.is_representative(stack.top_vertex())))) {
+                        ++stack.top_vertex();
+                    }
+
+                    // no more vertex left to individualize? we need to backtrack
+                    if (stack.top_vertex() == graph.num_nodes()) {
+                        DEBUG_STREAM << "c [stack] pop col=" << stack.top_color() << std::endl;
+
+                        // if we're backtracking from the best-leaf LCA, decrement prefix length
+                        // note that in all other cases, this prefix length won't change, as we're never revisiting
+                        // the best leaf path downwards
+                        if (on_best_leaf_path) {
+                            --best_leaf_lca;
+                            best_leaf.group_size *= best_leaf.orbits.orbit_size(best_leaf_path[best_leaf_lca] - 1);
+                        }
+                        stack.pop();
+
                         if (stack.empty())
                             break;
                         coloring = stack.top_coloring().copy();
-                        is_backtrack = true; // moving backward
+                        // moving backwards
+                        is_backtrack = true;
                         continue;
                     }
 
-
-                    const color_t col = selector_result.value();
-                    DEBUG_STREAM << "c [stack] push vertex_id=" << 0 << ", col=" << col << std::endl;
-                    stack.push(coloring, col, 0);
-                }
-
-                // check whether we're at a node on the best-leaf path
-                const bool on_best_leaf_path = best_leaf.has_value && stack.size() == best_leaf_lca;
-
-                // continue iterating vertices of present color on stack
-                while (stack.top_vertex() < graph.num_nodes() &&
-                       (coloring.get_color(stack.top_vertex()) != stack.top_color() ||
-                        (on_best_leaf_path && !best_leaf.orbits.is_representative(stack.top_vertex())))) {
-                    ++stack.top_vertex();
-                }
-
-                // no more vertex left to individualize? we need to backtrack
-                if (stack.top_vertex() == graph.num_nodes()) {
-                    DEBUG_STREAM << "c [stack] pop col=" << stack.top_color() << std::endl;
-
-                    // if we're backtracking from the best-leaf LCA, decrement prefix length
-                    // note that in all other cases, this prefix length won't change, as we're never revisiting
-                    // the best leaf path downwards
-                    if (on_best_leaf_path) {
-                        --best_leaf_lca;
-                        best_leaf.group_size *= best_leaf.orbits.orbit_size(best_leaf_path[best_leaf_lca] - 1);
-                    }
-                    stack.pop();
-
-                    if (stack.empty())
-                        break;
+                    assert(coloring.get_color(stack.top_vertex()) == stack.top_color());
+                    // time to actually do some work now
                     coloring = stack.top_coloring().copy();
-                    // moving backwards
-                    is_backtrack = true;
-                    continue;
+                    DEBUG_STREAM << "c [individualize] individualize vertex=" << stack.top_vertex() << std::endl;
+                    refine::individualize(coloring, stack.top_vertex());
+                    coloring.print(n);
+                    DEBUG_STREAM << "c [refine]" << std::endl;
+                    refine.refine_starting_at(coloring, stack.top_vertex());
+                    coloring.print(n);
+                    ++stack.top_vertex();
+                    is_backtrack = false; // we're moving forward in the tree
+                    ++stats.ir_nodes_visited;
+
+                    // TODO compare invariant
                 }
 
-                assert(coloring.get_color(stack.top_vertex()) == stack.top_color());
-                // time to actually do some work now
-                coloring = stack.top_coloring().copy();
-                DEBUG_STREAM << "c [individualize] individualize vertex=" << stack.top_vertex() << std::endl;
-                refine::individualize(coloring, stack.top_vertex());
-                coloring.print(n);
-                DEBUG_STREAM << "c [refine]" << std::endl;
-                refine::naive::refine(graph, coloring); // TODO needs to take as argument a vertex
-                coloring.print(n);
-                ++stack.top_vertex();
-                is_backtrack = false; // we're moving forward in the tree
-                ++stats.ir_nodes_visited;
-
-                // TODO compare invariant
+                stats.group_size = best_leaf.group_size;
+                return best_leaf.leaf.copy();
             }
 
-            stats.group_size = best_leaf.group_size;
-            return best_leaf.leaf.copy();
-        }
+            [[nodiscard]] const Stats& get_stats() const noexcept {
+                return stats;
+            }
+        };
+
+
     } // namespace solver
 } // namespace smallcanon
