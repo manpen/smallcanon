@@ -298,3 +298,25 @@ TYPED_TEST(AdjMatrixTests, EdgesReturnsEdgesForNonzeroSource) {
 
     EXPECT_EQ(collect_edges(matrix), (std::vector<smallcanon::edge_t>{{2, 0}, {2, 1}}));
 }
+
+TYPED_TEST(AdjMatrixTests, PermutedMapsEdgesToNewNodeIds) {
+    auto matrix = TypeParam::make_matrix();
+
+    matrix.add_edge(0, 1);
+    matrix.add_edge(1, 3);
+    matrix.add_edge(2, 4);
+    matrix.add_edge(0, 4);
+
+    auto new_id_of = matrix.nodes() | std::ranges::to<std::vector<smallcanon::node_t>>();
+    new_id_of[0] = 3;
+    new_id_of[1] = 0;
+    new_id_of[2] = 5;
+    new_id_of[3] = 2;
+    new_id_of[4] = 1;
+    new_id_of[5] = 4;
+
+    const auto mapped = matrix.permuted(new_id_of);
+
+    EXPECT_EQ(mapped.num_nodes(), matrix.num_nodes());
+    EXPECT_EQ(collect_edges(mapped), (std::vector<smallcanon::edge_t>{{2, 0}, {3, 0}, {3, 1}, {5, 1}}));
+}
