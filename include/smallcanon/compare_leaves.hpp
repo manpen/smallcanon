@@ -10,35 +10,15 @@
 namespace smallcanon {
     namespace compare {
 
-        // Compare a graph colored with discrete colorings (IR tree leaves), where
-        // -1 means coloring1 is smaller
-        //  0 means colored graphs are isomorphic
-        //  1 means coloring2 is smaller
-        //
-        //  When leaves are isomorphic, orbits is updated with the resulting automorphism.
+        // Compare a graph colored with discrete colorings (IR tree leaves).
+        // When leaves are isomorphic, orbits is updated with the resulting automorphism.
         template<class SM, class SC>
-        int compare(const AdjMatrix<SM>& graph, const Coloring<SC>& coloring1, const Coloring<SC>& coloring2,
-                    solver::Orbits& orbits) {
+        std::strong_ordering compare(const AdjMatrix<SM>& graph, const Coloring<SC>& coloring1,
+                                     const Coloring<SC>& coloring2, solver::Orbits& orbits) {
             const node_t n = graph.num_nodes();
-            constexpr node_t invalid = std::numeric_limits<node_t>::max();
 
-            // TODO should not allocate
-            std::vector<node_t> vertex1_of_color(n, invalid);
-            std::vector<node_t> vertex2_of_color(n, invalid);
-
-            // Invert both discrete colorings
-            for (const node_t v: graph.nodes()) {
-                const color_t c1 = coloring1.get_color(v);
-                const color_t c2 = coloring2.get_color(v);
-
-                assert(c1 < n);
-                assert(c2 < n);
-                assert(vertex1_of_color[c1] == invalid);
-                assert(vertex2_of_color[c2] == invalid);
-
-                vertex1_of_color[c1] = v;
-                vertex2_of_color[c2] = v;
-            }
+            const auto vertex1_of_color = coloring1.compute_inverse_of_discrete(n);
+            const auto vertex2_of_color = coloring2.compute_inverse_of_discrete(n);
 
             // Lexicographically compare the relabeled adjacency matrices
             for (color_t c_u = 0; c_u < n; ++c_u) {
@@ -53,7 +33,7 @@ namespace smallcanon {
                     const bool e2 = graph.has_edge(u2, v2);
 
                     if (e1 != e2)
-                        return e1 < e2 ? -1 : 1;
+                        return e1 < e2 ? std::strong_ordering::less : std::strong_ordering::greater;
                 }
             }
 
@@ -65,7 +45,7 @@ namespace smallcanon {
                     orbits.union_orbits(from, to);
             }
 
-            return 0;
+            return std::strong_ordering::equal;
         }
 
     } // namespace compare
