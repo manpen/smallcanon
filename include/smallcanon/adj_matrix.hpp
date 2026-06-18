@@ -119,7 +119,7 @@ namespace smallcanon {
             auto mapped = AdjMatrix(num_nodes());
 
             for (const auto& [u, v]: edges()) {
-                bool already_exists = mapped.add_edge(new_id_of[u], new_id_of[v]);
+                [[maybe_unused]] bool already_exists = mapped.add_edge(new_id_of[u], new_id_of[v]);
                 assert(!already_exists);
             }
 
@@ -143,9 +143,10 @@ namespace smallcanon {
             assert(v < n_);
             assert(LOOPS_ALLOWED || u != v);
             const auto prev1 = BitSpan(storage.row(u)).unset_bit(v);
+
+            [[maybe_unused]]
             const auto prev2 = BitSpan(storage.row(v)).unset_bit(u);
             assert(prev1 == prev2 || (LOOPS_ALLOWED && u == v));
-            (void) prev2;
             return prev1;
         }
 

@@ -19,7 +19,7 @@ namespace smallcanon {
 
         template<typename SC>
         struct Leaf {
-            bool has = false;
+            bool has_value = false;
             Coloring<SC> leaf;
             Orbits orbits;
             group_order_t group_size = 1;
@@ -30,13 +30,13 @@ namespace smallcanon {
                 leaf = new_leaf.copy();
                 group_size = 1;
                 orbits.clear();
-                has = true;
+                has_value = true;
             }
 
             void invalidate() {
                 group_size = 1;
                 orbits.clear();
-                has = false;
+                has_value = false;
             }
         };
 
@@ -59,47 +59,61 @@ namespace smallcanon {
         };
 
         template<typename SC>
-        struct SearchStack {
-            std::vector<Coloring<SC>> base_to_coloring;
-            std::vector<node_t> base_to_vertex;
-            std::vector<color_t> base_to_col;
-            std::vector<inv_t> base_to_inv;
+        class SearchStack {
+            struct Element {
+                Coloring<SC> coloring;
+                node_t vertex;
+                color_t col;
+            };
 
-            void push(Coloring<SC>& coloring, color_t selector_col, node_t vertex) {
-                base_to_coloring.push_back(coloring.copy());
-                base_to_vertex.push_back(vertex);
-                base_to_col.push_back(selector_col);
+            std::vector<Element> stack{};
+
+        public:
+            constexpr explicit SearchStack(node_t capacity) {
+                stack.reserve(capacity);
             }
 
-            node_t& top_vertex() {
-                return base_to_vertex.back();
+
+            constexpr void push(Coloring<SC>& coloring, color_t selector_col, node_t vertex) {
+                stack.emplace_back(std::move(coloring.copy()), vertex, selector_col);
             }
 
-            color_t& top_color() {
-                return base_to_col.back();
+            [[nodiscard]] constexpr node_t& top_vertex() noexcept {
+                return stack.back().vertex;
             }
 
-            Coloring<SC>& top_coloring() {
-                return base_to_coloring.back();
+            [[nodiscard]] constexpr color_t& top_color() noexcept {
+                return stack.back().col;
             }
 
-            void pop() {
-                base_to_coloring.pop_back();
-                base_to_vertex.pop_back();
-                base_to_col.pop_back();
+            [[nodiscard]] constexpr Coloring<SC>& top_coloring() noexcept {
+                return stack.back().coloring;
             }
 
-            size_t size() {
-                return base_to_coloring.size();
+            void pop() noexcept {
+                stack.pop_back();
             }
 
-            bool empty() {
-                return base_to_coloring.empty();
+            [[nodiscard]] constexpr size_t size() const noexcept {
+                return stack.size();
             }
 
-            void pop_to_level(size_t level) {
-                while (base_to_coloring.size() > level)
-                    pop();
+            [[nodiscard]] constexpr bool empty() const noexcept {
+                return stack.empty();
+            }
+
+            constexpr void pop_to_level(size_t level) noexcept {
+                while (stack.size() > level) {
+                    stack.pop_back();
+                }
+            }
+
+            constexpr void copy_path_into(std::vector<node_t>& path) const {
+                path.clear();
+                path.reserve(stack.size());
+                for (auto&& e: stack) {
+                    path.push_back(e.vertex);
+                }
             }
         };
 
@@ -109,7 +123,7 @@ namespace smallcanon {
 
             // initial color refinement
             refine::naive::refine(graph, coloring);
-            int n = graph.num_nodes();
+            const node_t n = graph.num_nodes();
             coloring.print(n);
 
             // best leaf found so far
@@ -122,7 +136,7 @@ namespace smallcanon {
             // std::vector<inv_t> base_to_best_leaf_inv;
 
             // depth-first search state
-            SearchStack<SC> stack;
+            SearchStack<SC> stack{graph.num_nodes()};
 
             // additional comparison leaves and orbit partitions
             // constexpr size_t NUM_COMP_LEAFS = 1;
@@ -146,50 +160,37 @@ namespace smallcanon {
                     if (!discrete) {
                         DEBUG_STREAM << "c [select] selected " << selector_result.value() << std::endl;
                         coloring.print(n, selector_result.value());
-                    } else
+                    } else {
                         DEBUG_STREAM << "c [select] discrete" << std::endl;
+                    }
 
                     if (discrete) {
-                        bool this_is_the_best_leaf = false;
-                        if (!best_leaf.has) { // TODO OR we're updating the leaf
+                        size_t backtrack_to = stack.size();
+                        if (!best_leaf.has_value) { // TODO OR we're updating the leaf
                             // TODO set best_leaf_lca to parent!
                             // TODO invalidate all comp leafs?
                             // our best leaf orbits have become invalid
                             DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
-                            this_is_the_best_leaf = true;
                             best_leaf.replace(coloring);
                             best_leaf_lca = stack.size();
-                            best_leaf_path = stack.base_to_vertex;
-                        }
-
-
-                        size_t backtrack_to = stack.size();
-                        if (!this_is_the_best_leaf) {
+                            stack.copy_path_into(best_leaf_path);
+                        } else {
                             // (1) TODO compare invariants
                             // (2) when invariants equal, actually compare leafs
-                            int compare = compare::compare(graph, best_leaf.leaf, coloring, best_leaf.orbits);
-                            DEBUG_STREAM << "c [compare] result=" << compare << std::endl;
+                            const auto compare = compare::compare(graph, best_leaf.leaf, coloring, best_leaf.orbits);
 
-                            switch (compare) {
-                                case 0:
-                                    // TODO leaf agrees with best-leaf? jump to best-leaf LCA
-                                    // TODO jumping to an LCA must purge all "deeper" leafs
-                                    ++stats.automorphisms;
-                                    backtrack_to = best_leaf_lca;
-                                    DEBUG_STREAM << "c [compare] backtrack_to=" << backtrack_to << std::endl;
-                                    break;
-                                case 1:
-                                    DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
-                                    ;
-                                    this_is_the_best_leaf = true;
-                                    ++stats.best_leaf_update;
-                                    best_leaf.replace(coloring);
-                                    best_leaf_lca = stack.size();
-                                    best_leaf_path = stack.base_to_vertex;
-                                    break;
-                                default:
-                                    // this leaf is worse.
-                                    break;
+                            if (compare == std::strong_ordering::equal) {
+                                // TODO leaf agrees with best-leaf? jump to best-leaf LCA
+                                // TODO jumping to an LCA must purge all "deeper" leafs
+                                ++stats.automorphisms;
+                                backtrack_to = best_leaf_lca;
+                                DEBUG_STREAM << "c [compare] backtrack_to=" << backtrack_to << std::endl;
+                            } else if (compare == std::strong_ordering::greater) {
+                                DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
+                                ++stats.best_leaf_update;
+                                best_leaf.replace(coloring);
+                                best_leaf_lca = stack.size();
+                                stack.copy_path_into(best_leaf_path);
                             }
 
                             // TODO if this doesn't agree with any already-stored leaf, then...
@@ -208,15 +209,16 @@ namespace smallcanon {
                         coloring = stack.top_coloring().copy();
                         is_backtrack = true; // moving backward
                         continue;
-                    } else {
-                        const color_t col = selector_result.value();
-                        DEBUG_STREAM << "c [stack] push vertex_id=" << 0 << ", col=" << col << std::endl;
-                        stack.push(coloring, col, 0);
                     }
+
+
+                    const color_t col = selector_result.value();
+                    DEBUG_STREAM << "c [stack] push vertex_id=" << 0 << ", col=" << col << std::endl;
+                    stack.push(coloring, col, 0);
                 }
 
                 // check whether we're at a node on the best-leaf path
-                const bool on_best_leaf_path = best_leaf.has && stack.size() == best_leaf_lca;
+                const bool on_best_leaf_path = best_leaf.has_value && stack.size() == best_leaf_lca;
 
                 // continue iterating vertices of present color on stack
                 while (stack.top_vertex() < graph.num_nodes() &&
