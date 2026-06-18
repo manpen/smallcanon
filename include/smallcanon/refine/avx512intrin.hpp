@@ -51,10 +51,10 @@ namespace smallcanon::refine::avx512intrin {
             return color;
         }
 
-        __m512i load_graph(const AdjMatrix8& graph) {
+        static __m512i load_graph(const AdjMatrix8& graph) {
             alignas(64) std::array<uint64_t, 8> rows{};
 
-            for (int i = 0; i < graph.num_nodes(); ++i) {
+            for (node_t i = 0; i < graph.num_nodes(); ++i) {
                 rows[i] = static_cast<uint64_t>(*graph.row(i).data()) * 0x0101010101010101;
             }
 
@@ -94,7 +94,7 @@ namespace smallcanon::refine::avx512intrin {
             return with_node_ids | colors_at_msb;
         }
 
-        u8x64_t compute_prefixsum_u8x8(uint8_t same_fingerprint_as_pred) {
+        static u8x64_t compute_prefixsum_u8x8(uint8_t same_fingerprint_as_pred) {
             // since we can easily fit 8 copies of 8 bits each into a register, we can abuse popcnt to compute a prefix
             // sum.
             u8x64_t masked = xs::bitwise_cast<uint8_t>(xs::broadcast_as<uint64_t>(0xff7f3f1f0f070301)) &
@@ -103,7 +103,7 @@ namespace smallcanon::refine::avx512intrin {
         }
     } // namespace graph8
 
-    void refine(const AdjMatrix8& graph, Coloring8& coloring) {
+    static void refine(const AdjMatrix8& graph, Coloring8& coloring) {
         const u64x8_t vgraph = graph8::load_graph(graph);
 
         // ternary required as "uint64_t << 64" is UB :(

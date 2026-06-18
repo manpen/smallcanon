@@ -75,14 +75,14 @@ TYPED_TEST(CanonTests, AlreadyDiscreteColoringReturnsDiscreteLeafWithoutSearch) 
         coloring.set_color(u, u);
     }
 
-    smallcanon::solver::Stats stats;
-    const auto leaf = smallcanon::solver::canonize(graph, coloring, stats);
+    auto solver = smallcanon::solver::Solver(graph);
+    const auto leaf = solver.canonize(coloring);
 
     expect_discrete_coloring(leaf, graph.num_nodes());
-    EXPECT_EQ(stats.ir_nodes_visited, 0);
-    EXPECT_EQ(stats.best_leaf_update, 0);
-    EXPECT_EQ(stats.automorphisms, 0);
-    EXPECT_EQ(stats.group_size, 1);
+    EXPECT_EQ(solver.get_stats().ir_nodes_visited, 0);
+    EXPECT_EQ(solver.get_stats().best_leaf_update, 0);
+    EXPECT_EQ(solver.get_stats().automorphisms, 0);
+    EXPECT_EQ(solver.get_stats().group_size, 1);
     for (const auto u: graph.nodes()) {
         EXPECT_EQ(leaf.get_color(u), u);
     }
@@ -96,12 +96,14 @@ TYPED_TEST(CanonTests, CanonicalAdjacencyIsInvariantUnderNodePermutation) {
     const auto mapped_graph = graph.permuted(new_id_of);
 
     Coloring coloring(graph.num_nodes());
-    smallcanon::solver::Stats stats;
-    const auto leaf = smallcanon::solver::canonize(graph, coloring, stats);
+
+    auto solver = smallcanon::solver::Solver(graph);
+    const auto leaf = solver.canonize(coloring);
 
     Coloring mapped_coloring(mapped_graph.num_nodes());
-    smallcanon::solver::Stats mapped_stats;
-    const auto mapped_leaf = smallcanon::solver::canonize(mapped_graph, mapped_coloring, mapped_stats);
+
+    auto mapped_solver = smallcanon::solver::Solver(mapped_graph);
+    const auto mapped_leaf = mapped_solver.canonize(mapped_coloring);
 
     expect_discrete_coloring(leaf, graph.num_nodes());
     expect_discrete_coloring(mapped_leaf, mapped_graph.num_nodes());
@@ -161,12 +163,11 @@ TYPED_TEST(CanonTests, InvarianceNodePermutation) {
                             auto [shuffled_graph, shuffled_coloring, mapping] = permute_graph(rng, graph, coloring);
                             (void) mapping;
 
-                            smallcanon::solver::Stats stats;
-                            const auto canon = smallcanon::solver::canonize(graph, coloring, stats);
+                            auto solver = smallcanon::solver::Solver(graph);
+                            const auto canon = solver.canonize(coloring);
 
-                            smallcanon::solver::Stats mapped_stats;
-                            const auto canon_shuffled =
-                                    smallcanon::solver::canonize(shuffled_graph, shuffled_coloring, mapped_stats);
+                            auto solver_shuffled = smallcanon::solver::Solver(shuffled_graph);
+                            const auto canon_shuffled = solver_shuffled.canonize(shuffled_coloring);
 
                             ASSERT_EQ(canonical_adjacency(graph, canon),
                                       canonical_adjacency(shuffled_graph, canon_shuffled))
