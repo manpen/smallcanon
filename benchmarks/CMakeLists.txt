@@ -28,4 +28,5 @@ if (NAUTY)
             PRIVATE
             SMALLCANON_PROJECT_ROOT="${PROJECT_SOURCE_DIR}"
     )
+    target_link_libraries(smallcanon_benchmark_canon PRIVATE nauty)
 endif ()
