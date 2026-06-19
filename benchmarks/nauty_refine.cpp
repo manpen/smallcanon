@@ -75,7 +75,8 @@ void bm_naive(benchmark::State& state) {
 
         auto& inst = instances[idx];
 
-        smallcanon::refine::naive::refine(inst.graph, inst.coloring);
+        auto refine = smallcanon::refine::Naive(inst.graph);
+        refine.refine((inst.coloring));
 
         benchmark::DoNotOptimize(inst);
     }
@@ -104,7 +105,8 @@ void bm_avx512_instrinsic(benchmark::State& state) {
 
         auto& inst = instances[idx];
 
-        smallcanon::refine::avx512intrin::refine(inst.graph, inst.coloring);
+        auto refine = smallcanon::refine::avx512intrin::AVX512<G>(inst.graph);
+        refine.refine((inst.coloring));
 
         benchmark::DoNotOptimize(inst);
     }
