@@ -31,5 +31,27 @@ namespace smallcanon {
             return std::nullopt;
         }
 
+
+        template<typename SM, typename T, node_t N>
+        std::optional<color_t> select_first(const AdjMatrix<SM>& graph,
+                                            const Coloring<details::FixedColorStore<T, N>>& coloring) {
+            std::array<uint8_t, N> counts{};
+
+            const auto n = graph.num_nodes();
+            for (node_t v = 0; v < n; ++v) {
+                const auto color = coloring.get_color(v);
+                assert(color >= 0);
+                assert(color < n);
+                ++counts[color];
+            }
+
+            for (color_t color = 0; color < n; ++color) {
+                if (counts[color] >= 2) {
+                    return color;
+                }
+            }
+
+            return std::nullopt;
+        }
     } // namespace selector
 } // namespace smallcanon
