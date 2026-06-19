@@ -85,6 +85,26 @@ namespace {
         }
         return colors;
     }
+
+    template<typename LSC, typename RSC>
+    testing::AssertionResult colorings_imply_same_partition(const smallcanon::Coloring<LSC>& lhs,
+                                                            const smallcanon::Coloring<RSC>& rhs,
+                                                            smallcanon::node_t num_nodes) {
+        for (smallcanon::node_t u = 0; u < num_nodes; ++u) {
+            for (smallcanon::node_t v = u + 1; v < num_nodes; ++v) {
+                const bool same_lhs_color = lhs.get_color(u) == lhs.get_color(v);
+                const bool same_rhs_color = rhs.get_color(u) == rhs.get_color(v);
+                if (same_lhs_color != same_rhs_color) {
+                    return testing::AssertionFailure()
+                           << "nodes " << u << " and " << v << " disagree: lhs colors are " << lhs.get_color(u)
+                           << " and " << lhs.get_color(v) << ", rhs colors are " << rhs.get_color(u) << " and "
+                           << rhs.get_color(v);
+                }
+            }
+        }
+
+        return testing::AssertionSuccess();
+    }
 } // namespace
 
 TYPED_TEST(RefinementTests, EmptyGraphKeepsAllNodesInOneColorClass) {
@@ -180,6 +200,54 @@ TYPED_TEST(RefinementTests, DefaultNodeCount) {
     TestFixture::refinement_t::refine(graph, coloring);
 
     EXPECT_EQ(collect_colors(coloring, graph.num_nodes()), std::vector<smallcanon::color_t>(graph.num_nodes(), 0));
+}
+
+TYPED_TEST(RefinementTests, MatchesNaivePartitionOnCuratedDataset) {
+    using graph_t = typename TestFixture::graph_t;
+    using coloring_t = typename TestFixture::coloring_t;
+
+    if constexpr (std::is_same_v<typename TestFixture::refinement_t, RefinementNaiveScale>) {
+        return;
+    }
+
+    const auto dataset_path = std::filesystem::path(SMALLCANON_PROJECT_ROOT) / "datasets" / "curated.g6";
+    std::ifstream curated(dataset_path);
+    ASSERT_TRUE(curated.is_open()) << dataset_path;
+
+    std::mt19937_64 rng(2345);
+
+    for (auto [name, var_graph]: smallcanon::read_graph_dataset(curated)) {
+        std::visit(
+                [&](auto&& graph) {
+                    if constexpr (std::is_same_v<std::decay_t<decltype(graph)>, graph_t>) {
+                        const auto n = graph.num_nodes();
+                        coloring_t coloring(n);
+                        coloring_t naive_coloring(n);
+
+                        if (std::uniform_real_distribution{0., 1.}(rng) > 0.5) {
+                            // partially precolor half of all instances
+                            auto num_colored_nodes = std::uniform_int_distribution<smallcanon::node_t>{0, n / 2}(rng);
+                            for (auto i = num_colored_nodes; i; --i) {
+                                auto node = std::uniform_int_distribution<smallcanon::node_t>{0, n - 1}(rng);
+                                auto color = std::uniform_int_distribution<smallcanon::node_t>{0, n - 1}(rng);
+                                coloring.set_color(node, color);
+                                naive_coloring.set_color(node, color);
+                            }
+                        }
+
+
+                        TestFixture::refinement_t::refine(graph, coloring);
+
+                        {
+                            smallcanon::refine::Naive<graph_t> naive{graph};
+                            naive.refine(naive_coloring);
+                        }
+
+                        ASSERT_TRUE(colorings_imply_same_partition(coloring, naive_coloring, n)) << name;
+                    }
+                },
+                var_graph);
+    }
 }
 
 template<typename SM, typename SC>
