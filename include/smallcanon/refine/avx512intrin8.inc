@@ -108,23 +108,18 @@ namespace smallcanon::refine::avx512intrin {
         }
 #endif
     public:
-        explicit AVX512(const graph_t& external_graph) :
-            graph(import_graph(external_graph)),
-            disabled_colors((external_graph.num_nodes() == 8)
-                                    ? 0
-                                    : (~static_cast<uint64_t>(0)) << (8 * external_graph.num_nodes())),
-            enabled_eq_mask(static_cast<uint8_t>((2 << external_graph.num_nodes()) - 1)) {}
+        explicit AVX512(const graph_t& egraph) :
+            graph(import_graph(egraph)),
+            disabled_colors((egraph.num_nodes() == 8) ? 0 : (~static_cast<uint64_t>(0)) << (8 * egraph.num_nodes())),
+            enabled_eq_mask(static_cast<uint8_t>((2 << egraph.num_nodes()) - 1)) //
+        {}
 
-        void refine_starting_at(coloring_t& coloring, [[maybe_unused]] node_t start) {
+        void refine_starting_at(coloring_t& coloring, [[maybe_unused]] node_t start) const noexcept {
             refine(coloring);
         }
 
-        void refine(Coloring8& external_coloring) {
+        void refine(Coloring8& external_coloring) const noexcept {
             auto color_uint64 = import_color(external_coloring);
-
-            if (!color_uint64) {
-                color_uint64 = xs::get<0>(u64x8_t{popcnt(u8x64_t{graph})});
-            }
 
             // Store the previous value of `same_fingerprint_as_pred`.
             // To force completion of at least one iteration, we choose an impossible value:
@@ -132,7 +127,8 @@ namespace smallcanon::refine::avx512intrin {
             uint8_t prev_new_color_mask = 1;
 
             // We refine until either (i) the coloring is discrete or (ii) the coloring is converged.
-            while (true) {
+            bool is_discrete = false;
+            while (!is_discrete) {
                 // Each fingerprint uses 64 bits. The MSB 3 bits encode the old color, the lowest 3 bits the node id.
                 // The remaining bits are implementation specific and encode some (permutation invariant) information
                 // about each node's neighborhood.
@@ -164,13 +160,6 @@ namespace smallcanon::refine::avx512intrin {
                         break;
                     }
 
-                    // Check for discrete
-                    if ((new_color_mask | 1) == enabled_eq_mask) {
-                        // got discrete coloring, so order of node ids in fingerprint is color
-                        color_uint64 = xs::get<0>(node_ids_by_rank);
-                        break;
-                    }
-
                     prev_new_color_mask = new_color_mask;
                 }
 
@@ -186,8 +175,9 @@ namespace smallcanon::refine::avx512intrin {
                     const auto shifted = new_colors << (8 * node_ids_by_rank);
                     color_uint64 = xs::reduce_add(shifted);
                 }
-            }
 
+                is_discrete = (new_color_mask | 1) == enabled_eq_mask;
+            }
 
             export_color(external_coloring, color_uint64);
         }
