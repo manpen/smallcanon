@@ -4,9 +4,7 @@
 
 #if XSIMD_WITH_AVX512F
 
-#include <smallcanon/adj_matrix.hpp>
 #include <smallcanon/coloring.hpp>
-
 #include <smallcanon/simd/avx512defs.hpp>
 
 namespace smallcanon::refine::avx512intrin {
@@ -15,12 +13,12 @@ namespace smallcanon::refine::avx512intrin {
 
     template<typename Graph>
     class AVX512 {
-    public:
-        using graph_t = Graph;
-        using coloring_t = MatchedColoring<graph_t>::coloring_t;
+        // public:
+        // using graph_t = Graph;
+        // using coloring_t = MatchedColoring<graph_t>::coloring_t;
 
-    private:
-        const graph_t& graph;
+        // private:
+        // const graph_t& graph;
 
         // explicit AVX512(const graph_t& graph) : graph(graph) {}
         // void refine_starting_at(coloring_t& coloring, [[maybe_unused]] node_t start);
