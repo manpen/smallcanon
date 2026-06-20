@@ -91,10 +91,12 @@ TYPED_TEST(ColorStoreTests, ExposesMutableBufferRange) {
     using Color = typename Storage::scolor_t;
     Storage storage = TypeParam::make_storage();
 
-    static_assert(std::ranges::range<decltype(std::declval<Storage&>().buffer())>);
-    static_assert(std::same_as<decltype(std::declval<Storage&>().buffer()), std::span<Color>>);
+    using Buffer = decltype(std::declval<Storage&>().buffer());
+    static_assert(std::ranges::contiguous_range<Buffer>);
+    static_assert(std::same_as<std::ranges::range_value_t<Buffer>, Color>);
+    static_assert(std::same_as<std::ranges::range_reference_t<Buffer>, Color&>);
 
-    std::span<Color> buffer = storage.buffer();
+    auto buffer = storage.buffer();
 
     EXPECT_EQ(buffer.size(), TypeParam::expected_capacity);
     EXPECT_TRUE(std::ranges::all_of(buffer, [](auto color) { return color == 0; }));
@@ -104,11 +106,13 @@ TYPED_TEST(ColorStoreTests, ExposesConstBufferRange) {
     using Storage = typename TypeParam::storage_t;
     using Color = typename Storage::scolor_t;
 
-    static_assert(std::ranges::range<decltype(std::declval<const Storage&>().buffer())>);
-    static_assert(std::same_as<decltype(std::declval<const Storage&>().buffer()), std::span<const Color>>);
+    using Buffer = decltype(std::declval<const Storage&>().buffer());
+    static_assert(std::ranges::contiguous_range<Buffer>);
+    static_assert(std::same_as<std::ranges::range_value_t<Buffer>, Color>);
+    static_assert(std::same_as<std::ranges::range_reference_t<Buffer>, const Color&>);
 
     const Storage storage = TypeParam::make_storage();
-    std::span<const Color> buffer = storage.buffer();
+    auto buffer = storage.buffer();
 
     EXPECT_EQ(buffer.size(), TypeParam::expected_capacity);
 }
@@ -118,12 +122,12 @@ TYPED_TEST(ColorStoreTests, MutableWritesAreVisibleThroughConstRange) {
     using Color = typename Storage::scolor_t;
     Storage storage = TypeParam::make_storage();
 
-    std::span<Color> mutable_buffer = storage.buffer();
+    auto mutable_buffer = storage.buffer();
     mutable_buffer[0] = static_cast<Color>(7);
     mutable_buffer[TypeParam::expected_capacity - 1] = static_cast<Color>(13);
 
     const auto& const_storage = storage;
-    std::span<const Color> const_buffer = const_storage.buffer();
+    auto const_buffer = const_storage.buffer();
 
     EXPECT_EQ(const_buffer.data(), mutable_buffer.data());
     EXPECT_EQ(const_buffer[0], static_cast<Color>(7));
@@ -136,12 +140,15 @@ TYPED_TEST(ColoringTests, IsConstructibleFromCapacityButNotDefaultConstructible)
     static_assert(!std::is_default_constructible_v<Coloring>);
     static_assert(!std::default_initializable<Coloring>);
     static_assert(std::is_constructible_v<Coloring, smallcanon::node_t>);
-    [[maybe_unused]] Coloring coloring(TypeParam::expected_capacity);
+    Coloring coloring(TypeParam::expected_capacity);
+
+    EXPECT_TRUE(coloring.is_consistent());
 }
 
 TYPED_TEST(ColoringTests, ReportsCapacity) {
     const auto coloring = TypeParam::make_coloring();
 
+    EXPECT_TRUE(coloring.is_consistent());
     EXPECT_EQ(coloring.num_nodes(), TypeParam::expected_capacity);
     EXPECT_EQ(coloring.capacity(), TypeParam::expected_capacity);
 }
@@ -149,6 +156,7 @@ TYPED_TEST(ColoringTests, ReportsCapacity) {
 TYPED_TEST(ColoringTests, NewColoringInitializesLabelsToActiveNodes) {
     const auto coloring = TypeParam::make_coloring();
 
+    EXPECT_TRUE(coloring.is_consistent());
     ASSERT_TRUE(labels_are_sorted_by_color(coloring));
     for (smallcanon::node_t u = 0; u < coloring.num_nodes(); ++u) {
         EXPECT_EQ(coloring.labels()[u], u);
@@ -164,13 +172,18 @@ TEST(ColoringTests, FixedColoringTracksActiveNodesSeparatelyFromCapacity) {
     coloring.set_color(1, 1);
     coloring.set_color(2, 2);
     coloring.set_color(3, 3);
-    coloring.buffer()[5] = 4;
-    coloring.buffer()[6] = 4;
-    coloring.buffer()[7] = 4;
 
+    EXPECT_TRUE(coloring.is_consistent());
+
+    coloring.colors()[5] = 4;
+    coloring.colors()[6] = 4;
+    coloring.colors()[7] = 4;
+
+    EXPECT_TRUE(coloring.is_consistent());
     EXPECT_EQ(coloring.first_available_color(), 4);
 
     auto copied = coloring.copy();
+    EXPECT_TRUE(copied.is_consistent());
     EXPECT_EQ(copied.num_nodes(), coloring.num_nodes());
     EXPECT_EQ(copied.capacity(), coloring.capacity());
     EXPECT_EQ(copied.first_available_color(), 4);
@@ -186,15 +199,18 @@ TEST(ColoringTests, SetColorMaintainsLabelsSortedByColor) {
     ASSERT_TRUE(labels_are_sorted_by_color(coloring));
 
     EXPECT_EQ(coloring.set_color(3, 1), 0);
+    EXPECT_TRUE(coloring.is_consistent());
     ASSERT_TRUE(labels_are_sorted_by_color(coloring));
 
     EXPECT_EQ(coloring.set_color(4, 0), 2);
+    EXPECT_TRUE(coloring.is_consistent());
     ASSERT_TRUE(labels_are_sorted_by_color(coloring));
 }
 
 TYPED_TEST(ColoringTests, NewColoringInitializesColorsToZero) {
     const auto coloring = TypeParam::make_coloring();
 
+    EXPECT_TRUE(coloring.is_consistent());
     EXPECT_EQ(coloring.get_color(0), 0);
     EXPECT_EQ(coloring.get_color(TypeParam::expected_capacity - 1), 0);
 }
@@ -221,15 +237,18 @@ TYPED_TEST(ColoringTests, SetColorWorksAtHighestNodeAndColor) {
 TYPED_TEST(ColoringTests, FirstAvailableColorReturnsSmallestUnusedColor) {
     auto coloring = TypeParam::make_coloring();
 
+    EXPECT_TRUE(coloring.is_consistent());
     EXPECT_EQ(coloring.first_available_color(), 1);
 
     coloring.set_color(1, 1);
 
+    EXPECT_TRUE(coloring.is_consistent());
     EXPECT_EQ(coloring.first_available_color(), 2);
 
     coloring.set_color(2, 2);
     coloring.set_color(3, 3);
 
+    EXPECT_TRUE(coloring.is_consistent());
     EXPECT_EQ(coloring.first_available_color(), 4);
 }
 
@@ -238,6 +257,7 @@ TYPED_TEST(ColoringTests, CopyPreservesColorsAndIsIndependent) {
     constexpr auto last_node = TypeParam::expected_capacity - 1;
 
     coloring.set_color(0, 1);
+    EXPECT_TRUE(coloring.is_consistent());
     coloring.set_color(last_node, last_node);
 
     auto copied = coloring.copy();

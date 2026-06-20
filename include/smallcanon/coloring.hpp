@@ -68,22 +68,22 @@ namespace smallcanon {
         constexpr Coloring& operator=(Coloring&&) = default;
 
         /// Returns a mutable view of the color buffer.
-        constexpr std::span<scolor_t> buffer() noexcept {
+        constexpr auto colors() noexcept {
             return colors_.buffer();
         }
 
         /// Returns a read-only view of the color buffer.
-        constexpr std::span<const scolor_t> buffer() const noexcept {
+        constexpr auto colors() const noexcept {
             return colors_.buffer();
         }
 
         /// Returns a mutable view of the labels sorted by color.
-        constexpr std::span<scolor_t> labels() noexcept {
+        constexpr auto labels() noexcept {
             return labels_.buffer();
         }
 
         /// Returns a read-only view of the labels sorted by color.
-        constexpr std::span<const scolor_t> labels() const noexcept {
+        constexpr auto labels() const noexcept {
             return labels_.buffer();
         }
 
@@ -151,7 +151,7 @@ namespace smallcanon {
         template<typename SC>
         constexpr bool operator==(const Coloring<SC>& rhs) const noexcept {
             return num_nodes() == rhs.num_nodes() &&
-                   std::ranges::equal(buffer().first(num_nodes()), rhs.buffer().first(rhs.num_nodes()));
+                   std::ranges::equal(colors().first(num_nodes()), rhs.colors().first(rhs.num_nodes()));
         }
 
         /// Returns first unused color (assuming there are no gaps in the used colors)
@@ -161,12 +161,44 @@ namespace smallcanon {
             return get_color(node_with_highest_color) + 1;
         }
 
+        /// Returns false if a violation of the coloring assumptions was detected
+        [[nodiscard]] constexpr bool is_consistent() const noexcept {
+            const auto n = num_nodes();
+            for (const auto c: colors()) {
+                if (c >= n)
+                    return false;
+            }
+
+            // heuristic check to detect duplicates: the sum of labels needs to be (n choose 2)
+            uint64_t sum = 0;
+            for (const auto l: labels()) {
+                if (l >= n)
+                    return false;
+                sum += l;
+            }
+            if (sum != static_cast<uint64_t>(n) * (n - 1) / 2)
+                return false;
+
+            for (node_t i = 1; i < num_nodes(); ++i) {
+                const auto u = label_at(i - 1);
+                const auto v = label_at(i);
+
+                if (get_color(u) == get_color(v))
+                    continue;
+
+                if (get_color(u) + 1 != get_color(v))
+                    return false;
+            }
+
+            return true;
+        }
+
         /// Prints the coloring
         void print(const size_t n) const noexcept {
 #ifdef PRINT_DEBUG
             std::vector<std::pair<node_t, color_t>> vertex_with_colors;
             node_t v = 0;
-            for (auto c: buffer())
+            for (auto c: colors())
                 if (v < n)
                     vertex_with_colors.push_back({v++, c});
             std::sort(vertex_with_colors.begin(), vertex_with_colors.end(),
@@ -268,15 +300,15 @@ namespace smallcanon {
             constexpr FixedColorStore& operator=(FixedColorStore&&) = default;
 
             /// Returns a mutable view of the color buffer.
-            constexpr std::span<scolor_t> buffer() noexcept {
+            constexpr auto buffer() noexcept {
                 auto *begin = buffer_.data();
-                return std::span(begin, begin + Capacity);
+                return std::span<scolor_t, Capacity>(begin, Capacity);
             }
 
             /// Returns a read-only view of the color buffer.
-            constexpr std::span<const scolor_t> buffer() const noexcept {
+            constexpr auto buffer() const noexcept {
                 const auto *begin = buffer_.data();
-                return std::span(begin, begin + Capacity);
+                return std::span<const scolor_t, Capacity>(begin, begin + Capacity);
             }
         };
 
