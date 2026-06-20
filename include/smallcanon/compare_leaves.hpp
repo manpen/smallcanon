@@ -13,15 +13,12 @@ namespace smallcanon {
         // Compare a graph colored with discrete colorings (IR tree leaves).
         // When leaves are isomorphic, orbits is updated with the resulting automorphism.
         template<class SM, class SC>
-        std::strong_ordering compare(const AdjMatrix<SM>& graph, const Coloring<SC>& coloring1,
-                                     const Coloring<SC>& coloring2, solver::Orbits& orbits) {
+        std::strong_ordering compare(const AdjMatrix<SM>& graph, const Coloring<SC>& vertex1_of_color,
+                                     const Coloring<SC>& vertex2_of_color, solver::Orbits& orbits) {
             const node_t n = graph.num_nodes();
 
-            const auto vertex1_of_color = coloring1.compute_inverse_of_discrete(n);
-            const auto vertex2_of_color = coloring2.compute_inverse_of_discrete(n);
-
             // Lexicographically compare the relabeled adjacency matrices
-            for (color_t c_u = 0; c_u < n; ++c_u) {
+            for (color_t c_u = 1; c_u < n; ++c_u) {
                 const node_t u1 = vertex1_of_color[c_u];
                 const node_t u2 = vertex2_of_color[c_u];
 

@@ -26,9 +26,9 @@ namespace smallcanon {
     public:
         using storage_t = Storage;
         using word_t = typename Storage::word_t;
-        static constexpr size_t BITS_PER_WORD = Storage::BITS_PER_WORD;
-        static constexpr bool LOOPS_ALLOWED = false;
-        static constexpr node_t MAX_NODES = storage_t::MAX_NODES;
+        static constexpr size_t kBitsPerWord = Storage::kBitsPerWord;
+        static constexpr bool kLoopsAllowed = false;
+        static constexpr node_t kMaxNodes = storage_t::kMaxNodes;
 
     private:
         Storage storage{};
@@ -37,7 +37,7 @@ namespace smallcanon {
     public:
         /// Creates an adjacency matrix from an existing storage object.
         constexpr explicit AdjMatrix(node_t num_nodes) : storage(num_nodes), n_(num_nodes) {
-            assert(storage.row_capacity() % storage_t::BITS_PER_WORD == 0);
+            assert(storage.row_capacity() % storage_t::kBitsPerWord == 0);
             assert(num_nodes <= storage.row_capacity());
         }
 
@@ -150,10 +150,10 @@ namespace smallcanon {
         constexpr bool add_edge(node_t u, node_t v) noexcept {
             assert(u < n_);
             assert(v < n_);
-            assert(LOOPS_ALLOWED || u != v);
+            assert(kLoopsAllowed || u != v);
             const auto prev1 = BitSpan(storage.row(u)).set_bit(v);
             [[maybe_unused]] const auto prev2 = BitSpan(storage.row(v)).set_bit(u);
-            assert(prev1 == prev2 || (LOOPS_ALLOWED && u == v));
+            assert(prev1 == prev2 || (kLoopsAllowed && u == v));
             return prev1;
         }
 
@@ -161,12 +161,12 @@ namespace smallcanon {
         constexpr bool remove_edge(node_t u, node_t v) noexcept {
             assert(u < n_);
             assert(v < n_);
-            assert(LOOPS_ALLOWED || u != v);
+            assert(kLoopsAllowed || u != v);
             const auto prev1 = BitSpan(storage.row(u)).unset_bit(v);
 
             [[maybe_unused]]
             const auto prev2 = BitSpan(storage.row(v)).unset_bit(u);
-            assert(prev1 == prev2 || (LOOPS_ALLOWED && u == v));
+            assert(prev1 == prev2 || (kLoopsAllowed && u == v));
             return prev1;
         }
 
@@ -203,9 +203,9 @@ namespace smallcanon {
         class HeapStorage {
         public:
             using word_t = uint32_t;
-            static constexpr size_t BITS_PER_WORD = 8 * sizeof(word_t);
-            static constexpr node_t CAPACITY_OF_SMALLEST_GRAPH = BITS_PER_WORD;
-            static constexpr node_t MAX_NODES = std::numeric_limits<node_t>::max();
+            static constexpr size_t kBitsPerWord = 8 * sizeof(word_t);
+            static constexpr node_t kCapacityOfSmallestGraph = kBitsPerWord;
+            static constexpr node_t kMaxNodes = std::numeric_limits<node_t>::max();
 
         private:
             node_t row_capacity_;
@@ -216,31 +216,31 @@ namespace smallcanon {
 
             /// Allocates zero-initialized heap storage for at least row_capacity nodes.
             explicit constexpr HeapStorage(node_t row_capacity) :
-                row_capacity_(std::max(CAPACITY_OF_SMALLEST_GRAPH, std::bit_ceil(row_capacity))),
-                buffer_(std::make_unique<word_t[]>(row_capacity_ * row_capacity_ / BITS_PER_WORD)) {
+                row_capacity_(std::max(kCapacityOfSmallestGraph, std::bit_ceil(row_capacity))),
+                buffer_(std::make_unique<word_t[]>(row_capacity_ * row_capacity_ / kBitsPerWord)) {
                 assert(row_capacity_ > 0);
             }
 
             /// Returns a mutable view of the whole backing word buffer.
             [[nodiscard]] constexpr std::span<word_t> buffer() noexcept {
-                return {buffer_.get(), row_capacity_ * row_capacity_ / BITS_PER_WORD};
+                return {buffer_.get(), row_capacity_ * row_capacity_ / kBitsPerWord};
             }
 
             /// Returns a read-only view of the whole backing word buffer.
             [[nodiscard]] constexpr std::span<const word_t> buffer() const noexcept {
-                return {buffer_.get(), row_capacity_ * row_capacity_ / BITS_PER_WORD};
+                return {buffer_.get(), row_capacity_ * row_capacity_ / kBitsPerWord};
             }
 
             /// Returns a mutable view of the backing words for row i.
             [[nodiscard]] constexpr std::span<word_t> row(size_t i) noexcept {
-                const auto words_per_row = row_capacity_ / BITS_PER_WORD;
+                const auto words_per_row = row_capacity_ / kBitsPerWord;
                 const auto begin = buffer_.get() + i * words_per_row;
                 return {begin, begin + words_per_row};
             }
 
             /// Returns a read-only view of the backing words for row i.
             [[nodiscard]] constexpr std::span<const word_t> row(size_t i) const noexcept {
-                const auto words_per_row = row_capacity_ / BITS_PER_WORD;
+                const auto words_per_row = row_capacity_ / kBitsPerWord;
                 const auto begin = buffer_.get() + i * words_per_row;
                 return {begin, begin + words_per_row};
             }
@@ -257,22 +257,22 @@ namespace smallcanon {
         class FixedStorage {
         public:
             using word_t = Word;
-            static constexpr size_t BITS_PER_WORD = 8 * sizeof(word_t);
-            static constexpr node_t CAPACITY = Capacity;
-            static constexpr node_t MAX_NODES = CAPACITY;
-            static constexpr auto kWordsPerRow = Capacity / BITS_PER_WORD;
+            static constexpr size_t kBitsPerWord = 8 * sizeof(word_t);
+            static constexpr node_t kCapacity = Capacity;
+            static constexpr node_t kMaxNodes = kCapacity;
+            static constexpr auto kWordsPerRow = Capacity / kBitsPerWord;
 
         private:
             static_assert(std::has_single_bit(Capacity)); // is power of two
-            static constexpr size_t Words = Capacity * Capacity / BITS_PER_WORD;
-            std::array<word_t, Words> buffer_ = {};
+            static constexpr size_t kWords = Capacity * Capacity / kBitsPerWord;
+            std::array<word_t, kWords> buffer_ = {};
 
         public:
             FixedStorage() = default;
 
             /// Constructs a Fixed Storage
             explicit constexpr FixedStorage([[maybe_unused]] node_t n) noexcept {
-                assert(n <= Capacity);
+                assert(n <= kCapacity);
             }
 
             /// Returns a mutable view of the whole backing word buffer.
@@ -299,7 +299,7 @@ namespace smallcanon {
 
             /// Returns the number of bits available in each matrix row.
             [[nodiscard]] constexpr node_t row_capacity() const noexcept {
-                return Capacity;
+                return kCapacity;
             }
         };
 

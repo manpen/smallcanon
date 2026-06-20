@@ -44,9 +44,9 @@ int process_instance(const Options& option, DimacsParseResult& instance) {
     auto& [inp_nodes, inp_edges, inp_colors] = instance;
     const auto nodes = static_cast<smallcanon::node_t>(inp_nodes);
 
-    if (nodes > adjmat_t::MAX_NODES) {
+    if (nodes > adjmat_t::kMaxNodes) {
         std::cerr << "Instance too large for selected container format. Instance size: " << inp_nodes
-                  << ". Limit: " << adjmat_t::MAX_NODES << std::endl;
+                  << ". Limit: " << adjmat_t::kMaxNodes << std::endl;
         return -1;
     }
 

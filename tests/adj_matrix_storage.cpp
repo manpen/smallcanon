@@ -13,7 +13,7 @@ namespace {
     template<typename Storage, smallcanon::node_t ExpectedCapacity>
     struct FixedStorageCase {
         using storage_t = Storage;
-        static constexpr smallcanon::node_t expected_capacity = ExpectedCapacity;
+        static constexpr smallcanon::node_t kExpectedCapacity = ExpectedCapacity;
     };
 
     template<typename T>
@@ -38,13 +38,13 @@ TYPED_TEST(FixedStorageTests, ExposesWordProperties) {
     using Storage = typename TypeParam::storage_t;
 
     static_assert(std::is_unsigned_v<typename Storage::word_t>);
-    EXPECT_EQ(Storage::BITS_PER_WORD, sizeof(typename Storage::word_t) * 8);
+    EXPECT_EQ(Storage::kBitsPerWord, sizeof(typename Storage::word_t) * 8);
 }
 
 TYPED_TEST(FixedStorageTests, ReportsExpectedRowCapacity) {
     typename TypeParam::storage_t storage;
 
-    EXPECT_EQ(storage.row_capacity(), TypeParam::expected_capacity);
+    EXPECT_EQ(storage.row_capacity(), TypeParam::kExpectedCapacity);
 }
 
 TYPED_TEST(FixedStorageTests, BufferCoversTheWholeMatrix) {
@@ -52,7 +52,7 @@ TYPED_TEST(FixedStorageTests, BufferCoversTheWholeMatrix) {
     Storage storage;
 
     const std::span<typename Storage::word_t> buffer = storage.buffer();
-    const auto expected_words = TypeParam::expected_capacity * TypeParam::expected_capacity / Storage::BITS_PER_WORD;
+    const auto expected_words = TypeParam::kExpectedCapacity * TypeParam::kExpectedCapacity / Storage::kBitsPerWord;
 
     EXPECT_EQ(buffer.size(), expected_words);
 }
@@ -76,8 +76,8 @@ TEST(HeapStorageTests, ExposesWordProperties) {
     using Storage = smallcanon::details::HeapStorage;
 
     static_assert(std::is_unsigned_v<Storage::word_t>);
-    EXPECT_EQ(Storage::BITS_PER_WORD, sizeof(Storage::word_t) * 8);
-    EXPECT_EQ(Storage::CAPACITY_OF_SMALLEST_GRAPH, Storage::BITS_PER_WORD);
+    EXPECT_EQ(Storage::kBitsPerWord, sizeof(Storage::word_t) * 8);
+    EXPECT_EQ(Storage::kCapacityOfSmallestGraph, Storage::kBitsPerWord);
 }
 
 TEST(HeapStorageTests, RoundsRowCapacityUpToAtLeastSmallestGraphCapacity) {
@@ -104,7 +104,7 @@ TEST(HeapStorageTests, BufferCoversTheWholeMatrix) {
     Storage storage(33);
 
     const std::span<Storage::word_t> buffer = storage.buffer();
-    const auto expected_words = storage.row_capacity() * storage.row_capacity() / Storage::BITS_PER_WORD;
+    const auto expected_words = storage.row_capacity() * storage.row_capacity() / Storage::kBitsPerWord;
 
     EXPECT_EQ(buffer.size(), expected_words);
 }
@@ -120,7 +120,7 @@ TEST(HeapStorageTests, RowCoversOneMatrixRow) {
     Storage storage(33);
 
     const std::span<Storage::word_t> row = storage.row(0);
-    const auto expected_words_per_row = storage.row_capacity() / Storage::BITS_PER_WORD;
+    const auto expected_words_per_row = storage.row_capacity() / Storage::kBitsPerWord;
 
     EXPECT_EQ(row.size(), expected_words_per_row);
 }
@@ -129,7 +129,7 @@ TEST(HeapStorageTests, RowsReferenceConsecutivePartsOfBuffer) {
     using Storage = smallcanon::details::HeapStorage;
     Storage storage(33);
 
-    const auto words_per_row = storage.row_capacity() / Storage::BITS_PER_WORD;
+    const auto words_per_row = storage.row_capacity() / Storage::kBitsPerWord;
     const std::span<Storage::word_t> buffer = storage.buffer();
 
     for (smallcanon::node_t i = 0; i < storage.row_capacity(); ++i) {
@@ -144,7 +144,7 @@ TEST(HeapStorageTests, RowWritesAreVisibleThroughBuffer) {
     using Storage = smallcanon::details::HeapStorage;
     Storage storage(33);
 
-    const auto words_per_row = storage.row_capacity() / Storage::BITS_PER_WORD;
+    const auto words_per_row = storage.row_capacity() / Storage::kBitsPerWord;
     std::span<Storage::word_t> row = storage.row(storage.row_capacity() - 1);
     row[0] = static_cast<Storage::word_t>(0b1010);
 
@@ -163,6 +163,6 @@ TEST(HeapStorageTests, ConstBufferAndRowExposeStorage) {
     const std::span<const Storage::word_t> buffer = const_storage.buffer();
     const std::span<const Storage::word_t> row = const_storage.row(1);
 
-    EXPECT_EQ(row.data(), buffer.data() + static_cast<std::ptrdiff_t>(storage.row_capacity() / Storage::BITS_PER_WORD));
+    EXPECT_EQ(row.data(), buffer.data() + static_cast<std::ptrdiff_t>(storage.row_capacity() / Storage::kBitsPerWord));
     EXPECT_EQ(row[0], static_cast<Storage::word_t>(0b1001));
 }
