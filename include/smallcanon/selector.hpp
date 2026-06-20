@@ -13,42 +13,14 @@ namespace smallcanon {
         template<class SM, class SC>
         std::optional<color_t> select_first(const AdjMatrix<SM>& graph, const Coloring<SC>& coloring) {
             const auto n = graph.num_nodes();
-            std::vector<node_t> counts(n, 0); // TODO horribly inefficient
 
-            for (node_t v = 0; v < n; ++v) {
-                const auto color = coloring.get_color(v);
-                assert(color >= 0);
-                assert(color < n);
-                ++counts[color];
-            }
-
-            for (color_t color = 0; color < n; ++color) {
-                if (counts[color] >= 2) {
+            auto prev_color = coloring.color_at_label(0);
+            for (node_t v = 1; v < n; ++v) {
+                auto color = coloring.color_at_label(v);
+                if (color == prev_color) {
                     return color;
                 }
-            }
-
-            return std::nullopt;
-        }
-
-
-        template<typename SM, typename T, node_t N>
-        std::optional<color_t> select_first(const AdjMatrix<SM>& graph,
-                                            const Coloring<details::FixedColorStore<T, N>>& coloring) {
-            std::array<uint8_t, N> counts{};
-
-            const auto n = graph.num_nodes();
-            for (node_t v = 0; v < n; ++v) {
-                const auto color = coloring.get_color(v);
-                assert(color >= 0);
-                assert(color < n);
-                ++counts[color];
-            }
-
-            for (color_t color = 0; color < n; ++color) {
-                if (counts[color] >= 2) {
-                    return color;
-                }
+                prev_color = color;
             }
 
             return std::nullopt;
