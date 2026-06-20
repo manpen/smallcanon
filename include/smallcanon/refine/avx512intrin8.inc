@@ -31,9 +31,10 @@ namespace smallcanon::refine::avx512intrin {
             return color;
         }
 
-        static void export_color(Coloring8& coloring, uint64_t color) {
-            for (node_t i = 0; i < coloring.num_nodes(); ++i, color >>= 8) {
-                coloring.set_color(i, static_cast<uint8_t>(color));
+        static void export_color(Coloring8& coloring, uint64_t color, uint64_t labels) {
+            for (node_t i = 0; i < coloring.num_nodes(); ++i, color >>= 8, labels >>= 8) {
+                coloring.colors()[i] = static_cast<uint8_t>(color);
+                coloring.labels()[i] = static_cast<uint8_t>(labels);
             }
         }
 
@@ -128,6 +129,7 @@ namespace smallcanon::refine::avx512intrin {
 
             // We refine until either (i) the coloring is discrete or (ii) the coloring is converged.
             bool is_discrete = false;
+            u64x8_t node_ids_by_rank;
             while (!is_discrete) {
                 // Each fingerprint uses 64 bits. The MSB 3 bits encode the old color, the lowest 3 bits the node id.
                 // The remaining bits are implementation specific and encode some (permutation invariant) information
@@ -139,7 +141,7 @@ namespace smallcanon::refine::avx512intrin {
                 const auto sorted_fingerprints = simd::sort::sort_details::sort_single_batch<8>(fingerprints);
 
                 // Split fingerprints into node ids and remainder
-                const auto node_ids_by_rank = sorted_fingerprints & 0xf;
+                node_ids_by_rank = sorted_fingerprints & 0xf;
                 const auto fingerprints_wo_node_ids = sorted_fingerprints & 0xfffffffffffffff0;
 
                 uint8_t new_color_mask;
@@ -179,7 +181,9 @@ namespace smallcanon::refine::avx512intrin {
                 is_discrete = (new_color_mask | 1) == enabled_eq_mask;
             }
 
-            export_color(external_coloring, color_uint64);
+            const uint64_t labels = xs::reduce_add(node_ids_by_rank << u64cont<0, 8>());
+
+            export_color(external_coloring, color_uint64, labels);
         }
     };
 
