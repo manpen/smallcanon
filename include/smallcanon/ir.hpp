@@ -280,6 +280,7 @@ namespace smallcanon {
                     DEBUG_STREAM << "c [refine]" << std::endl;
                     refine.refine_starting_at(coloring, stack.top_vertex());
                     coloring.print(n);
+                    assert(coloring.is_consistent());
                     ++stack.top_vertex();
                     is_backtrack = false; // we're moving forward in the tree
                     ++stats.ir_nodes_visited;
