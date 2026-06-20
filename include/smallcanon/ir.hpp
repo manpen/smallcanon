@@ -199,12 +199,12 @@ namespace smallcanon {
                                 // (1) TODO compare invariants
                                 // (2) when invariants equal, actually compare leafs
 
-                                const auto compare =
-                                        compare::compare(graph, best_leaf.leaf, coloring, best_leaf.orbits);
+                                const auto compare = compare::compare(graph, best_leaf.leaf, coloring);
 
                                 if (compare == std::strong_ordering::equal) {
                                     // TODO leaf agrees with best-leaf? jump to best-leaf LCA
                                     // TODO jumping to an LCA must purge all "deeper" leafs
+                                    best_leaf.orbits.record_isomorphic_colorings(best_leaf.leaf, coloring);
                                     ++stats.automorphisms;
                                     backtrack_to = best_leaf_lca;
                                     DEBUG_STREAM << "c [compare] backtrack_to=" << backtrack_to << std::endl;

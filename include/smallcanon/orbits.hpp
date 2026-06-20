@@ -58,6 +58,18 @@ namespace smallcanon {
                     partition_sz[repr2] += partition_sz[repr1];
                 }
             }
+
+            template<typename CS>
+            constexpr void record_isomorphic_colorings(const Coloring<CS>& coloring1,
+                                                       const Coloring<CS>& coloring2) noexcept {
+                const auto n = coloring1.num_nodes();
+                for (color_t c = 0; c < n; ++c) {
+                    const node_t from = coloring1.labels()[c];
+                    const node_t to = coloring2.labels()[c];
+                    if (from != to)
+                        union_orbits(from, to);
+                }
+            }
         };
     } // namespace solver
 } // namespace smallcanon

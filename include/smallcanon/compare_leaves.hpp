@@ -14,7 +14,7 @@ namespace smallcanon {
         // When leaves are isomorphic, orbits is updated with the resulting automorphism.
         template<class SM, class SC>
         std::strong_ordering compare(const AdjMatrix<SM>& graph, const Coloring<SC>& coloring1,
-                                     const Coloring<SC>& coloring2, solver::Orbits& orbits) {
+                                     const Coloring<SC>& coloring2) {
             const node_t n = graph.num_nodes();
 
             // Lexicographically compare the relabeled adjacency matrices
@@ -32,14 +32,6 @@ namespace smallcanon {
                     if (e1 != e2)
                         return e1 < e2 ? std::strong_ordering::less : std::strong_ordering::greater;
                 }
-            }
-
-            // The two leaves are isomorphic
-            for (color_t c = 0; c < n; ++c) {
-                const node_t from = coloring1.labels()[c];
-                const node_t to = coloring2.labels()[c];
-                if (from != to)
-                    orbits.union_orbits(from, to);
             }
 
             return std::strong_ordering::equal;
