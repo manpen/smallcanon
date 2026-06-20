@@ -9,6 +9,7 @@
 #include <span>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace {
     template<typename Storage, smallcanon::node_t ExpectedCapacity>
@@ -50,6 +51,32 @@ namespace {
                            ColoringCase<smallcanon::Coloring32, 32>, ColoringCase<smallcanon::Coloring64, 64>,
                            ColoringCase<smallcanon::Coloring128, 128>, ColoringCase<smallcanon::ColoringHeap, 128>>;
     TYPED_TEST_SUITE(ColoringTests, ColoringTypes);
+
+    template<typename Coloring>
+    testing::AssertionResult labels_are_sorted_by_color(const Coloring& coloring) {
+        std::vector<bool> seen(coloring.num_nodes(), false);
+        smallcanon::color_t previous_color = 0;
+
+        for (smallcanon::node_t i = 0; i < coloring.num_nodes(); ++i) {
+            const auto label = static_cast<smallcanon::node_t>(coloring.labels()[i]);
+            if (label >= coloring.num_nodes()) {
+                return testing::AssertionFailure() << "label " << label << " is outside active range";
+            }
+            if (seen[label]) {
+                return testing::AssertionFailure() << "label " << label << " appears more than once";
+            }
+            seen[label] = true;
+
+            const auto color = coloring.get_color(label);
+            if (i > 0 && color < previous_color) {
+                return testing::AssertionFailure()
+                       << "label at position " << i << " has color " << color << " after color " << previous_color;
+            }
+            previous_color = color;
+        }
+
+        return testing::AssertionSuccess();
+    }
 } // namespace
 
 TYPED_TEST(ColorStoreTests, IsConstructibleFromCapacity) {
@@ -119,6 +146,15 @@ TYPED_TEST(ColoringTests, ReportsCapacity) {
     EXPECT_EQ(coloring.capacity(), TypeParam::expected_capacity);
 }
 
+TYPED_TEST(ColoringTests, NewColoringInitializesLabelsToActiveNodes) {
+    const auto coloring = TypeParam::make_coloring();
+
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
+    for (smallcanon::node_t u = 0; u < coloring.num_nodes(); ++u) {
+        EXPECT_EQ(coloring.labels()[u], u);
+    }
+}
+
 TEST(ColoringTests, FixedColoringTracksActiveNodesSeparatelyFromCapacity) {
     smallcanon::Coloring8 coloring(5);
 
@@ -138,6 +174,22 @@ TEST(ColoringTests, FixedColoringTracksActiveNodesSeparatelyFromCapacity) {
     EXPECT_EQ(copied.num_nodes(), coloring.num_nodes());
     EXPECT_EQ(copied.capacity(), coloring.capacity());
     EXPECT_EQ(copied.first_available_color(), 4);
+}
+
+TEST(ColoringTests, SetColorMaintainsLabelsSortedByColor) {
+    smallcanon::Coloring8 coloring(6);
+
+    EXPECT_EQ(coloring.set_color(4, 2), 0);
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
+
+    EXPECT_EQ(coloring.set_color(1, 2), 0);
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
+
+    EXPECT_EQ(coloring.set_color(3, 1), 0);
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
+
+    EXPECT_EQ(coloring.set_color(4, 0), 2);
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
 }
 
 TYPED_TEST(ColoringTests, NewColoringInitializesColorsToZero) {
@@ -166,6 +218,21 @@ TYPED_TEST(ColoringTests, SetColorWorksAtHighestNodeAndColor) {
     EXPECT_EQ(coloring.get_color(last_node), last_color);
 }
 
+TYPED_TEST(ColoringTests, FirstAvailableColorReturnsSmallestUnusedColor) {
+    auto coloring = TypeParam::make_coloring();
+
+    EXPECT_EQ(coloring.first_available_color(), 1);
+
+    coloring.set_color(1, 1);
+
+    EXPECT_EQ(coloring.first_available_color(), 2);
+
+    coloring.set_color(2, 2);
+    coloring.set_color(3, 3);
+
+    EXPECT_EQ(coloring.first_available_color(), 4);
+}
+
 TYPED_TEST(ColoringTests, CopyPreservesColorsAndIsIndependent) {
     auto coloring = TypeParam::make_coloring();
     constexpr auto last_node = TypeParam::expected_capacity - 1;
@@ -183,25 +250,4 @@ TYPED_TEST(ColoringTests, CopyPreservesColorsAndIsIndependent) {
 
     EXPECT_EQ(coloring.get_color(0), 1);
     EXPECT_EQ(copied.get_color(0), 2);
-}
-
-TYPED_TEST(ColoringTests, ComputeInverseOfDiscreteMapsColorsBackToNodes) {
-    auto coloring = TypeParam::make_coloring();
-
-    constexpr smallcanon::node_t n = 6;
-    coloring.set_color(0, 4);
-    coloring.set_color(1, 2);
-    coloring.set_color(2, 0);
-    coloring.set_color(3, 5);
-    coloring.set_color(4, 1);
-    coloring.set_color(5, 3);
-
-    const auto inverse = coloring.compute_inverse_of_discrete(n);
-
-    EXPECT_EQ(inverse.get_color(0), 2);
-    EXPECT_EQ(inverse.get_color(1), 4);
-    EXPECT_EQ(inverse.get_color(2), 1);
-    EXPECT_EQ(inverse.get_color(3), 5);
-    EXPECT_EQ(inverse.get_color(4), 0);
-    EXPECT_EQ(inverse.get_color(5), 3);
 }

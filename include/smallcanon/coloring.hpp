@@ -25,14 +25,43 @@ namespace smallcanon {
 
     private:
         node_t num_nodes_;
-        storage_t storage;
+        storage_t colors_;
+        storage_t labels_;
+
+        constexpr void initialize_labels() noexcept {
+            auto labels = labels_.buffer();
+            for (node_t u = 0; u < num_nodes(); ++u) {
+                labels[u] = static_cast<scolor_t>(u);
+            }
+        }
+
+        [[nodiscard]] constexpr node_t label_at(node_t pos) const noexcept {
+            assert(pos < num_nodes());
+            return static_cast<node_t>(labels_.buffer()[pos]);
+        }
+
+        [[nodiscard]] constexpr color_t color_at_label(node_t pos) const noexcept {
+            return static_cast<color_t>(colors_.buffer()[label_at(pos)]);
+        }
+
+        [[nodiscard]] constexpr node_t label_position(node_t u) const noexcept {
+            for (node_t pos = 0; pos < num_nodes(); ++pos) {
+                if (label_at(pos) == u) {
+                    return pos;
+                }
+            }
+            assert(false);
+            return num_nodes();
+        }
 
     public:
         constexpr Coloring() = delete;
 
         /// Creates a coloring for num_nodes nodes.
-        constexpr explicit Coloring(node_t num_nodes) : num_nodes_(num_nodes), storage(num_nodes) {
+        constexpr explicit Coloring(node_t num_nodes) : num_nodes_(num_nodes), colors_(num_nodes), labels_(num_nodes) {
             assert(num_nodes_ <= capacity());
+            assert(labels_.buffer().size() == colors_.buffer().size());
+            initialize_labels();
         }
 
         constexpr Coloring(Coloring&&) = default;
@@ -40,12 +69,22 @@ namespace smallcanon {
 
         /// Returns a mutable view of the color buffer.
         constexpr std::span<scolor_t> buffer() noexcept {
-            return storage.buffer();
+            return colors_.buffer();
         }
 
         /// Returns a read-only view of the color buffer.
         constexpr std::span<const scolor_t> buffer() const noexcept {
-            return storage.buffer();
+            return colors_.buffer();
+        }
+
+        /// Returns a mutable view of the labels sorted by color.
+        constexpr std::span<scolor_t> labels() noexcept {
+            return labels_.buffer();
+        }
+
+        /// Returns a read-only view of the labels sorted by color.
+        constexpr std::span<const scolor_t> labels() const noexcept {
+            return labels_.buffer();
         }
 
         /// Returns the number of active nodes.
@@ -55,28 +94,17 @@ namespace smallcanon {
 
         /// Returns the number of nodes supported by the backing storage.
         [[nodiscard]] node_t capacity() const noexcept {
-            return static_cast<node_t>(storage.buffer().size());
+            return static_cast<node_t>(colors_.buffer().size());
         }
 
         /// Returns the current color of node u.
         [[nodiscard]] color_t get_color(node_t u) const noexcept {
             assert(u < num_nodes());
-            return static_cast<color_t>(storage.buffer()[u]);
+            return static_cast<color_t>(colors_.buffer()[u]);
         }
 
         [[nodiscard]] color_t operator[](const node_t u) const noexcept {
             return get_color(u);
-        }
-
-        /// Returns the `lab` equivalent of a discrete coloring.
-        [[nodiscard]] Coloring compute_inverse_of_discrete(node_t n) const noexcept {
-            auto lab = Coloring(n);
-            std::fill_n(lab.buffer().begin(), lab.buffer().size(), n);
-            for (node_t u = 0; u < n; ++u) {
-                [[maybe_unused]] const color_t old = lab.set_color(get_color(u), u);
-                assert(old == n);
-            }
-            return lab;
         }
 
         /// Sets the color of node u and returns the previous color.
@@ -87,16 +115,35 @@ namespace smallcanon {
             assert(u < num_nodes());
             assert(new_color < num_nodes());
 
-            auto& color = storage.buffer()[u];
+            auto& color = colors_.buffer()[u];
             const auto prev = static_cast<color_t>(color);
+            if (prev == new_color) {
+                return prev;
+            }
+
             color = static_cast<scolor_t>(new_color);
+            auto labels = labels_.buffer();
+            auto pos = label_position(u);
+            if (new_color < prev) {
+                while (pos > 0 && color_at_label(pos - 1) >= new_color) {
+                    labels[pos] = labels[pos - 1];
+                    --pos;
+                }
+            } else {
+                while (pos + 1 < num_nodes() && color_at_label(pos + 1) <= new_color) {
+                    labels[pos] = labels[pos + 1];
+                    ++pos;
+                }
+            }
+            labels[pos] = static_cast<scolor_t>(u);
             return prev;
         }
 
         /// Copy the coloring; we do not use the copy-constructor to avoid performance bugs.
         [[nodiscard]] constexpr Coloring copy() const {
             Coloring copied(num_nodes());
-            std::ranges::copy(storage.buffer(), copied.storage.buffer().begin());
+            std::ranges::copy(colors_.buffer(), copied.colors_.buffer().begin());
+            std::ranges::copy(labels_.buffer(), copied.labels_.buffer().begin());
             return copied;
         }
 
@@ -107,26 +154,11 @@ namespace smallcanon {
                    std::ranges::equal(buffer().first(num_nodes()), rhs.buffer().first(rhs.num_nodes()));
         }
 
-
-        color_t first_available_color() {
+        /// Returns first unused color (assuming there are no gaps in the used colors)
+        [[nodiscard]] constexpr color_t first_available_color() const noexcept {
             const node_t n = num_nodes();
-            const auto colors = buffer().first(n);
-
-            // TODO this is super horrible
-            std::vector<char> used(static_cast<std::size_t>(n) + 1, false);
-
-            for (color_t c: colors) {
-                assert(c < n);
-                used[static_cast<std::size_t>(c)] = true;
-            }
-
-            color_t first_available_color = 0;
-            while (used[static_cast<std::size_t>(first_available_color)]) {
-                ++first_available_color;
-            }
-            assert(first_available_color < n);
-
-            return first_available_color;
+            const node_t node_with_highest_color = label_at(n - 1);
+            return get_color(node_with_highest_color) + 1;
         }
 
         /// Prints the coloring
