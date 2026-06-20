@@ -40,10 +40,6 @@ namespace smallcanon {
             return static_cast<node_t>(labels_.buffer()[pos]);
         }
 
-        [[nodiscard]] constexpr color_t color_at_label(node_t pos) const noexcept {
-            return static_cast<color_t>(colors_.buffer()[label_at(pos)]);
-        }
-
         [[nodiscard]] constexpr node_t label_position(node_t u) const noexcept {
             for (node_t pos = 0; pos < num_nodes(); ++pos) {
                 if (label_at(pos) == u) {
@@ -106,6 +102,11 @@ namespace smallcanon {
         [[nodiscard]] color_t operator[](const node_t u) const noexcept {
             return get_color(u);
         }
+
+        [[nodiscard]] constexpr color_t color_at_label(node_t pos) const noexcept {
+            return static_cast<color_t>(colors_.buffer()[label_at(pos)]);
+        }
+
 
         /// Sets the color of node u and returns the previous color.
         /// Warning: Only colors in the range [0, num_nodes) are guaranteed to be storable,
