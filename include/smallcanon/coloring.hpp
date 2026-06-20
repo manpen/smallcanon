@@ -15,8 +15,8 @@
 
 namespace smallcanon {
     /// Coloring maps nodes to colors backed by a configurable storage type.
-    /// Only colors in the range [0, capacity) are guaranteed to be storable because storage may use a type smaller than
-    /// color_t internally.
+    /// Only colors in the range [0, num_nodes) are accepted by the public API because storage may use a type smaller
+    /// than color_t internally.
     template<typename Storage>
     class Coloring {
     public:
@@ -24,13 +24,16 @@ namespace smallcanon {
         using scolor_t = typename storage_t::scolor_t;
 
     private:
+        node_t num_nodes_;
         storage_t storage;
 
     public:
         constexpr Coloring() = delete;
 
-        /// Creates a coloring for capacity nodes.
-        constexpr explicit Coloring(node_t capacity) : storage(capacity) {}
+        /// Creates a coloring for num_nodes nodes.
+        constexpr explicit Coloring(node_t num_nodes) : num_nodes_(num_nodes), storage(num_nodes) {
+            assert(num_nodes_ <= capacity());
+        }
 
         constexpr Coloring(Coloring&&) = default;
         constexpr Coloring& operator=(Coloring&&) = default;
@@ -45,14 +48,19 @@ namespace smallcanon {
             return storage.buffer();
         }
 
-        /// Returns the number of nodes supported.
+        /// Returns the number of active nodes.
+        [[nodiscard]] constexpr node_t num_nodes() const noexcept {
+            return num_nodes_;
+        }
+
+        /// Returns the number of nodes supported by the backing storage.
         [[nodiscard]] node_t capacity() const noexcept {
             return static_cast<node_t>(storage.buffer().size());
         }
 
         /// Returns the current color of node u.
         [[nodiscard]] color_t get_color(node_t u) const noexcept {
-            assert(u < capacity());
+            assert(u < num_nodes());
             return static_cast<color_t>(storage.buffer()[u]);
         }
 
@@ -72,12 +80,12 @@ namespace smallcanon {
         }
 
         /// Sets the color of node u and returns the previous color.
-        /// Warning: Only colors in the range [0, capacity) are guaranteed to be storable,
+        /// Warning: Only colors in the range [0, num_nodes) are guaranteed to be storable,
         /// because storage may use a type smaller than color_t internally.
         color_t set_color(node_t u, color_t new_color) noexcept {
             // the storage may use a smaller internal type for colors
-            assert(u < capacity());
-            assert(new_color < capacity());
+            assert(u < num_nodes());
+            assert(new_color < num_nodes());
 
             auto& color = storage.buffer()[u];
             const auto prev = static_cast<color_t>(color);
@@ -87,7 +95,7 @@ namespace smallcanon {
 
         /// Copy the coloring; we do not use the copy-constructor to avoid performance bugs.
         [[nodiscard]] constexpr Coloring copy() const {
-            Coloring copied(capacity());
+            Coloring copied(num_nodes());
             std::ranges::copy(storage.buffer(), copied.storage.buffer().begin());
             return copied;
         }
@@ -95,18 +103,20 @@ namespace smallcanon {
         /// Two colorings are equal if they map to the exact same colors.
         template<typename SC>
         constexpr bool operator==(const Coloring<SC>& rhs) const noexcept {
-            return std::ranges::equal(storage.buffer(), rhs.storage.buffer());
+            return num_nodes() == rhs.num_nodes() &&
+                   std::ranges::equal(buffer().first(num_nodes()), rhs.buffer().first(rhs.num_nodes()));
         }
 
 
         color_t first_available_color() {
-            const auto& colors = buffer();
-            const node_t n = capacity();
+            const node_t n = num_nodes();
+            const auto colors = buffer().first(n);
 
             // TODO this is super horrible
-            std::vector<char> used(static_cast<std::size_t>(n), false);
+            std::vector<char> used(static_cast<std::size_t>(n) + 1, false);
 
             for (color_t c: colors) {
+                assert(c < n);
                 used[static_cast<std::size_t>(c)] = true;
             }
 
@@ -114,6 +124,7 @@ namespace smallcanon {
             while (used[static_cast<std::size_t>(first_available_color)]) {
                 ++first_available_color;
             }
+            assert(first_available_color < n);
 
             return first_available_color;
         }
