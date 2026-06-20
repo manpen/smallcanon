@@ -115,7 +115,29 @@ TYPED_TEST(ColoringTests, IsConstructibleFromCapacityButNotDefaultConstructible)
 TYPED_TEST(ColoringTests, ReportsCapacity) {
     const auto coloring = TypeParam::make_coloring();
 
+    EXPECT_EQ(coloring.num_nodes(), TypeParam::expected_capacity);
     EXPECT_EQ(coloring.capacity(), TypeParam::expected_capacity);
+}
+
+TEST(ColoringTests, FixedColoringTracksActiveNodesSeparatelyFromCapacity) {
+    smallcanon::Coloring8 coloring(5);
+
+    EXPECT_EQ(coloring.num_nodes(), 5);
+    EXPECT_EQ(coloring.capacity(), 8);
+
+    coloring.set_color(1, 1);
+    coloring.set_color(2, 2);
+    coloring.set_color(3, 3);
+    coloring.buffer()[5] = 4;
+    coloring.buffer()[6] = 4;
+    coloring.buffer()[7] = 4;
+
+    EXPECT_EQ(coloring.first_available_color(), 4);
+
+    auto copied = coloring.copy();
+    EXPECT_EQ(copied.num_nodes(), coloring.num_nodes());
+    EXPECT_EQ(copied.capacity(), coloring.capacity());
+    EXPECT_EQ(copied.first_available_color(), 4);
 }
 
 TYPED_TEST(ColoringTests, NewColoringInitializesColorsToZero) {

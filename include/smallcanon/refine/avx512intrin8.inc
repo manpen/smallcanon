@@ -25,14 +25,14 @@ namespace smallcanon::refine::avx512intrin {
         static uint64_t import_color(const Coloring8& coloring) {
             // this should become a simple load ... but this version should be more portable.
             uint64_t color = 0;
-            for (int i = 0; i < 8; ++i) {
+            for (node_t i = 0; i < coloring.num_nodes(); ++i) {
                 color |= static_cast<uint64_t>(coloring.get_color(i)) << (8 * i);
             }
             return color;
         }
 
         static void export_color(Coloring8& coloring, uint64_t color) {
-            for (int i = 0; i < 8; ++i, color >>= 8) {
+            for (node_t i = 0; i < coloring.num_nodes(); ++i, color >>= 8) {
                 coloring.set_color(i, static_cast<uint8_t>(color));
             }
         }

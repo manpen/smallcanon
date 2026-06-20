@@ -27,7 +27,7 @@ namespace smallcanon::refine {
         // Very inefficient implementation meant as a reference to cross-validate more complex implementations against.
         // There may be no node i >= graph.num_nodes() with deg(i) > 0.
         void refine(coloring_t& coloring) {
-            assert(graph.num_nodes() <= coloring.capacity());
+            assert(graph.num_nodes() == coloring.num_nodes());
 
             std::vector<std::vector<color_t>> fingerprints(graph.num_nodes());
 
