@@ -260,6 +260,7 @@ namespace smallcanon {
             static constexpr size_t BITS_PER_WORD = 8 * sizeof(word_t);
             static constexpr node_t CAPACITY = Capacity;
             static constexpr node_t MAX_NODES = CAPACITY;
+            static constexpr auto kWordsPerRow = Capacity / BITS_PER_WORD;
 
         private:
             static_assert(std::has_single_bit(Capacity)); // is power of two
@@ -285,17 +286,15 @@ namespace smallcanon {
             }
 
             /// Returns a mutable view of the backing words for row i.
-            [[nodiscard]] constexpr std::span<word_t> row(size_t i) noexcept {
-                constexpr auto words_per_row = Capacity / BITS_PER_WORD;
-                const auto begin = buffer_.begin() + (i * words_per_row);
-                return {begin, begin + words_per_row};
+            [[nodiscard]] constexpr auto row(size_t i) noexcept {
+                auto *begin = buffer_.begin() + (i * kWordsPerRow);
+                return std::span<word_t, kWordsPerRow>(begin, kWordsPerRow);
             }
 
             /// Returns a read-only view of the backing words for row i.
-            [[nodiscard]] constexpr std::span<const word_t> row(size_t i) const noexcept {
-                constexpr auto words_per_row = Capacity / BITS_PER_WORD;
-                const auto begin = buffer_.begin() + (i * words_per_row);
-                return {begin, begin + words_per_row};
+            [[nodiscard]] constexpr auto row(size_t i) const noexcept {
+                const auto *begin = buffer_.begin() + (i * kWordsPerRow);
+                return std::span<const word_t, kWordsPerRow>(begin, kWordsPerRow);
             }
 
             /// Returns the number of bits available in each matrix row.

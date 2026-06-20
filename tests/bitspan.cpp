@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <type_traits>
 #include <vector>
 
@@ -24,8 +25,8 @@ std::vector<int> collect_set_bits(T value) {
     return bits;
 }
 
-template<typename T>
-std::vector<size_t> collect_span_set_bits(const smallcanon::BitSpan<T>& span) {
+template<typename T, size_t Extent>
+std::vector<size_t> collect_span_set_bits(const smallcanon::BitSpan<T, Extent>& span) {
     std::vector<size_t> bits;
     for (const auto bit: span.iterate_set_bits()) {
         bits.push_back(bit);
@@ -64,6 +65,36 @@ TYPED_TEST(BitSpanTests, SizeReturnsTotalNumberOfBitsInRange) {
     const smallcanon::BitSpan span(words.data(), words.data() + words.size());
 
     EXPECT_EQ(span.size(), words.size() * std::numeric_limits<TypeParam>::digits);
+}
+
+TYPED_TEST(BitSpanTests, DeducesStaticExtentFromStaticSpan) {
+    constexpr size_t word_count = 2;
+    constexpr auto bits_per_word = std::numeric_limits<TypeParam>::digits;
+    std::array<TypeParam, word_count> words{TypeParam{1}, TypeParam{1} << 1};
+    std::span<TypeParam, word_count> word_span(words);
+    const smallcanon::BitSpan span(word_span);
+
+    static_assert(std::is_same_v<decltype(span), const smallcanon::BitSpan<TypeParam, word_count>>);
+    EXPECT_EQ(span.size(), word_count * bits_per_word);
+    EXPECT_EQ(collect_span_set_bits(span), (std::vector<size_t>{0, bits_per_word + 1}));
+}
+
+TYPED_TEST(BitSpanTests, SingleWordStaticExtentUsesSingleWordInterface) {
+    constexpr auto highest_bit = std::numeric_limits<TypeParam>::digits - 1;
+    std::array<TypeParam, 1> words{TypeParam{1}};
+    std::span<TypeParam, 1> word_span(words);
+    smallcanon::BitSpan span(word_span);
+
+    static_assert(std::is_same_v<decltype(span), smallcanon::BitSpan<TypeParam, 1>>);
+    EXPECT_EQ(span.size(), std::numeric_limits<TypeParam>::digits);
+    EXPECT_TRUE(span.get_bit(0));
+
+    EXPECT_FALSE(span.set_bit(highest_bit));
+    EXPECT_EQ(collect_span_set_bits(span), (std::vector<size_t>{0, highest_bit}));
+
+    EXPECT_TRUE(span.unset_bit(0));
+    EXPECT_FALSE(span.assign_bit(1, true));
+    EXPECT_EQ(collect_span_set_bits(span), (std::vector<size_t>{1, highest_bit}));
 }
 
 TYPED_TEST(BitSpanTests, SizeIsZeroForEmptyRange) {
