@@ -11,7 +11,7 @@ namespace {
     struct AdjMatrixCase {
         using storage_t = Storage;
         using matrix_t = smallcanon::AdjMatrix<storage_t>;
-        static constexpr smallcanon::node_t NUM_NODES = NumNodes;
+        static constexpr smallcanon::node_t kNumNodes = NumNodes;
 
         static matrix_t make_matrix() {
             return matrix_t{NumNodes};
@@ -59,7 +59,7 @@ TYPED_TEST(AdjMatrixTests, ExposesWholeMatrixBuffer) {
     auto matrix = TypeParam::make_matrix();
 
     const std::span<typename Matrix::word_t> buffer = matrix.buffer();
-    const auto expected_words = TypeParam::NUM_NODES * TypeParam::NUM_NODES / Matrix::BITS_PER_WORD;
+    const auto expected_words = TypeParam::kNumNodes * TypeParam::kNumNodes / Matrix::kBitsPerWord;
 
     EXPECT_GE(buffer.size(), expected_words);
     EXPECT_TRUE(std::ranges::all_of(buffer, [](auto word) { return word == 0; }));
@@ -70,7 +70,7 @@ TYPED_TEST(AdjMatrixTests, ExposesWholeMatrixBufferConst) {
     const auto matrix = TypeParam::make_matrix();
 
     const std::span<const typename Matrix::word_t> buffer = matrix.buffer();
-    const auto expected_words = TypeParam::NUM_NODES * TypeParam::NUM_NODES / Matrix::BITS_PER_WORD;
+    const auto expected_words = TypeParam::kNumNodes * TypeParam::kNumNodes / Matrix::kBitsPerWord;
 
     EXPECT_GE(buffer.size(), expected_words);
     EXPECT_TRUE(std::ranges::all_of(buffer, [](auto word) { return word == 0; }));
@@ -81,7 +81,7 @@ TYPED_TEST(AdjMatrixTests, ExposesRows) {
     auto matrix = TypeParam::make_matrix();
 
     const std::span<typename Matrix::word_t> row = matrix.row(0);
-    const auto expected_words_per_row = TypeParam::NUM_NODES / Matrix::BITS_PER_WORD;
+    const auto expected_words_per_row = TypeParam::kNumNodes / Matrix::kBitsPerWord;
 
     EXPECT_GE(row.size(), expected_words_per_row);
 }
@@ -91,19 +91,19 @@ TYPED_TEST(AdjMatrixTests, ExposesRowsConst) {
     auto matrix = TypeParam::make_matrix();
 
     const std::span<const typename Matrix::word_t> row = matrix.row(0);
-    const auto expected_words_per_row = TypeParam::NUM_NODES / Matrix::BITS_PER_WORD;
+    const auto expected_words_per_row = TypeParam::kNumNodes / Matrix::kBitsPerWord;
 
     EXPECT_GE(row.size(), expected_words_per_row);
 }
 
 TYPED_TEST(AdjMatrixTests, ReportsCapacity) {
     const auto matrix = TypeParam::make_matrix();
-    EXPECT_GE(matrix.capacity(), TypeParam::NUM_NODES);
+    EXPECT_GE(matrix.capacity(), TypeParam::kNumNodes);
 }
 
 TYPED_TEST(AdjMatrixTests, ReportsNumNodes) {
     const auto matrix = TypeParam::make_matrix();
-    EXPECT_GE(matrix.num_nodes(), TypeParam::NUM_NODES);
+    EXPECT_GE(matrix.num_nodes(), TypeParam::kNumNodes);
 }
 
 TYPED_TEST(AdjMatrixTests, IterateNodes) {
@@ -122,8 +122,8 @@ TYPED_TEST(AdjMatrixTests, NewMatrixHasNoEdges) {
 
     EXPECT_FALSE(matrix.has_edge(0, 1));
     EXPECT_FALSE(matrix.has_edge(1, 0));
-    EXPECT_FALSE(matrix.has_edge(TypeParam::NUM_NODES - 2, TypeParam::NUM_NODES - 1));
-    EXPECT_FALSE(matrix.has_edge(TypeParam::NUM_NODES - 1, TypeParam::NUM_NODES - 2));
+    EXPECT_FALSE(matrix.has_edge(TypeParam::kNumNodes - 2, TypeParam::kNumNodes - 1));
+    EXPECT_FALSE(matrix.has_edge(TypeParam::kNumNodes - 1, TypeParam::kNumNodes - 2));
 }
 
 TYPED_TEST(AdjMatrixTests, AddEdgeSetsBothDirectionsAndReturnsPreviousState) {
@@ -141,13 +141,13 @@ TYPED_TEST(AdjMatrixTests, AddEdgeSetsBothDirectionsAndReturnsPreviousState) {
 TYPED_TEST(AdjMatrixTests, AddEdgeWorksAtHighestValidNodeIndex) {
     auto matrix = TypeParam::make_matrix();
 
-    constexpr auto u = TypeParam::NUM_NODES - 2;
-    constexpr auto v = TypeParam::NUM_NODES - 1;
+    constexpr auto kU = TypeParam::kNumNodes - 2;
+    constexpr auto kV = TypeParam::kNumNodes - 1;
 
-    EXPECT_FALSE(matrix.add_edge(u, v));
+    EXPECT_FALSE(matrix.add_edge(kU, kV));
 
-    EXPECT_TRUE(matrix.has_edge(u, v));
-    EXPECT_TRUE(matrix.has_edge(v, u));
+    EXPECT_TRUE(matrix.has_edge(kU, kV));
+    EXPECT_TRUE(matrix.has_edge(kV, kU));
 }
 
 TYPED_TEST(AdjMatrixTests, AddEdgesAddsNewEdgesAndReportsNewEdgeCount) {
@@ -255,13 +255,13 @@ TYPED_TEST(AdjMatrixTests, NeighborsOfReturnsNoNodesForIsolatedNode) {
 
 TYPED_TEST(AdjMatrixTests, NeighborsOfReturnsAdjacentNodesInAscendingOrder) {
     auto matrix = TypeParam::make_matrix();
-    constexpr auto last = TypeParam::NUM_NODES - 1;
+    constexpr auto kLast = TypeParam::kNumNodes - 1;
 
-    matrix.add_edge(0, last);
+    matrix.add_edge(0, kLast);
     matrix.add_edge(0, 2);
     matrix.add_edge(0, 1);
 
-    EXPECT_EQ(collect_neighbors_of(matrix, 0), (std::vector<smallcanon::node_t>{1, 2, last}));
+    EXPECT_EQ(collect_neighbors_of(matrix, 0), (std::vector<smallcanon::node_t>{1, 2, kLast}));
 }
 
 TYPED_TEST(AdjMatrixTests, NeighborsOfReturnsAdjacentNodesForNonzeroNode) {
@@ -281,13 +281,13 @@ TYPED_TEST(AdjMatrixTests, EdgesReturnsNoEdgesForEmptyMatrix) {
 
 TYPED_TEST(AdjMatrixTests, EdgesReturnsEachUndirectedEdgeOnce) {
     auto matrix = TypeParam::make_matrix();
-    constexpr auto last = TypeParam::NUM_NODES - 1;
+    constexpr auto kLast = TypeParam::kNumNodes - 1;
 
     matrix.add_edge(0, 1);
     matrix.add_edge(0, 2);
-    matrix.add_edge(last - 1, last);
+    matrix.add_edge(kLast - 1, kLast);
 
-    EXPECT_EQ(collect_edges(matrix), (std::vector<smallcanon::edge_t>{{1, 0}, {2, 0}, {last, last - 1}}));
+    EXPECT_EQ(collect_edges(matrix), (std::vector<smallcanon::edge_t>{{1, 0}, {2, 0}, {kLast, kLast - 1}}));
 }
 
 TYPED_TEST(AdjMatrixTests, EdgesReturnsEdgesForNonzeroSource) {

@@ -22,13 +22,15 @@ namespace smallcanon {
         struct Leaf {
             bool has_value = false;
             Coloring<SC> leaf;
+            Coloring<SC> leaf_inv;
             Orbits orbits;
             group_order_t group_size = 1;
 
-            explicit Leaf(node_t n) : leaf(n), orbits(n) {}
+            explicit Leaf(node_t n) : leaf(n), leaf_inv(n), orbits(n) {}
 
-            void replace(Coloring<SC>& new_leaf) {
+            void replace(const Coloring<SC>& new_leaf, const Coloring<SC>& new_inv) {
                 leaf = new_leaf.copy();
+                leaf_inv = new_inv.copy();
                 group_size = 1;
                 orbits.clear();
                 has_value = true;
@@ -187,19 +189,21 @@ namespace smallcanon {
 
                         if (discrete) {
                             size_t backtrack_to = stack.size();
+                            const auto inv_new = coloring.compute_inverse_of_discrete(n);
                             if (!best_leaf.has_value) { // TODO OR we're updating the leaf
                                 // TODO set best_leaf_lca to parent!
                                 // TODO invalidate all comp leafs?
                                 // our best leaf orbits have become invalid
                                 DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
-                                best_leaf.replace(coloring);
+                                best_leaf.replace(coloring, inv_new);
                                 best_leaf_lca = stack.size();
                                 stack.copy_path_into(best_leaf_path);
                             } else {
                                 // (1) TODO compare invariants
                                 // (2) when invariants equal, actually compare leafs
+
                                 const auto compare =
-                                        compare::compare(graph, best_leaf.leaf, coloring, best_leaf.orbits);
+                                        compare::compare(graph, best_leaf.leaf_inv, inv_new, best_leaf.orbits);
 
                                 if (compare == std::strong_ordering::equal) {
                                     // TODO leaf agrees with best-leaf? jump to best-leaf LCA
@@ -210,7 +214,7 @@ namespace smallcanon {
                                 } else if (compare == std::strong_ordering::greater) {
                                     DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
                                     ++stats.best_leaf_update;
-                                    best_leaf.replace(coloring);
+                                    best_leaf.replace(coloring, inv_new);
                                     best_leaf_lca = stack.size();
                                     stack.copy_path_into(best_leaf_path);
                                 }
