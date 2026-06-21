@@ -16,9 +16,15 @@ namespace smallcanon::refine {
 
     private:
         const graph_t& graph;
+        std::vector<std::vector<color_t>> fingerprints;
+
 
     public:
-        explicit Naive(const graph_t& graph) : graph(graph) {}
+        explicit Naive(const graph_t& g) : graph(g), fingerprints(graph.num_nodes()) {
+            for (auto& f: fingerprints) {
+                f.reserve(graph.num_nodes() + 2);
+            }
+        }
 
         void refine_starting_at(coloring_t& coloring, [[maybe_unused]] node_t start) {
             refine(coloring);
@@ -29,7 +35,6 @@ namespace smallcanon::refine {
         void refine(coloring_t& coloring) {
             assert(graph.num_nodes() == coloring.num_nodes());
 
-            std::vector<std::vector<color_t>> fingerprints(graph.num_nodes());
 
             color_t color = 0;
             for (node_t round = 1; round < graph.num_nodes(); ++round) {
