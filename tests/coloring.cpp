@@ -252,6 +252,33 @@ TYPED_TEST(ColoringTests, FirstAvailableColorReturnsSmallestUnusedColor) {
     EXPECT_EQ(coloring.first_available_color(), 4);
 }
 
+TYPED_TEST(ColoringTests, IndividualizeMovesNodeToLastLabelWithNextColor) {
+    auto coloring = TypeParam::make_coloring();
+
+    constexpr smallcanon::node_t first_node = 3;
+    const auto previous_last = static_cast<smallcanon::node_t>(coloring.labels()[coloring.num_nodes() - 1]);
+    const auto first_color = coloring.get_color(previous_last) + 1;
+
+    coloring.individualize(first_node);
+
+    EXPECT_TRUE(coloring.is_consistent());
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
+    EXPECT_EQ(coloring.labels()[coloring.num_nodes() - 1], first_node);
+    EXPECT_EQ(coloring.get_color(first_node), first_color);
+
+    constexpr smallcanon::node_t second_node = 1;
+    const auto previous_second_last = static_cast<smallcanon::node_t>(coloring.labels()[coloring.num_nodes() - 1]);
+    const auto second_color = coloring.get_color(previous_second_last) + 1;
+
+    coloring.individualize(second_node);
+
+    EXPECT_TRUE(coloring.is_consistent());
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
+    EXPECT_EQ(coloring.labels()[coloring.num_nodes() - 1], second_node);
+    EXPECT_EQ(coloring.get_color(second_node), second_color);
+    EXPECT_EQ(coloring.get_color(first_node), first_color);
+}
+
 TYPED_TEST(ColoringTests, CopyPreservesColorsAndIsIndependent) {
     auto coloring = TypeParam::make_coloring();
     constexpr auto last_node = TypeParam::expected_capacity - 1;

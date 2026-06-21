@@ -10,7 +10,6 @@
 #include "smallcanon/orbits.hpp"
 #include "smallcanon/permutation.hpp"
 #include "smallcanon/refine/avx512intrin.hpp"
-#include "smallcanon/refine/individualize.hpp"
 #include "smallcanon/refine/naive.hpp"
 #include "smallcanon/selector.hpp"
 #include "smallcanon/utility.hpp"
@@ -275,7 +274,7 @@ namespace smallcanon {
                     // time to actually do some work now
                     coloring = stack.top_coloring().copy();
                     DEBUG_STREAM << "c [individualize] individualize vertex=" << stack.top_vertex() << std::endl;
-                    refine::individualize(coloring, stack.top_vertex());
+                    coloring.individualize(stack.top_vertex());
                     coloring.print(n);
                     DEBUG_STREAM << "c [refine]" << std::endl;
                     refine.refine_starting_at(coloring, stack.top_vertex());
