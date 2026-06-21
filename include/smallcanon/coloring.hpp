@@ -107,7 +107,6 @@ namespace smallcanon {
             return static_cast<color_t>(colors_.buffer()[label_at(pos)]);
         }
 
-
         /// Sets the color of node u and returns the previous color.
         /// Warning: Only colors in the range [0, num_nodes) are guaranteed to be storable,
         /// because storage may use a type smaller than color_t internally.
@@ -160,6 +159,23 @@ namespace smallcanon {
             const node_t n = num_nodes();
             const node_t node_with_highest_color = label_at(n - 1);
             return get_color(node_with_highest_color) + 1;
+        }
+
+        /// Moves node u to its own new color class at the end of the label order.
+        constexpr void individualize(node_t u) noexcept {
+            const node_t n = num_nodes();
+            assert(u < n);
+
+            const color_t new_color = color_at_label(n - 1) + 1;
+            assert(new_color < n);
+
+            auto labels = labels_.buffer();
+            for (auto pos = label_position(u); pos + 1 < n; ++pos) {
+                labels[pos] = labels[pos + 1];
+            }
+
+            labels[n - 1] = static_cast<scolor_t>(u);
+            colors_.buffer()[u] = static_cast<scolor_t>(new_color);
         }
 
         /// Returns false if a violation of the coloring assumptions was detected
