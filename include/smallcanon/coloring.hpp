@@ -154,15 +154,8 @@ namespace smallcanon {
                    std::ranges::equal(colors().first(num_nodes()), rhs.colors().first(rhs.num_nodes()));
         }
 
-        /// Returns first unused color (assuming there are no gaps in the used colors)
-        [[nodiscard]] constexpr color_t first_available_color() const noexcept {
-            const node_t n = num_nodes();
-            const node_t node_with_highest_color = label_at(n - 1);
-            return get_color(node_with_highest_color) + 1;
-        }
-
         /// Moves node u to its own new color class at the end of the label order.
-        constexpr void individualize(node_t u) noexcept {
+        constexpr void individualize(const node_t u) noexcept {
             const node_t n = num_nodes();
             assert(u < n);
 
@@ -181,22 +174,22 @@ namespace smallcanon {
         /// Returns false if a violation of the coloring assumptions was detected
         [[nodiscard]] constexpr bool is_consistent() const noexcept {
             const auto n = num_nodes();
-            for (const auto c: colors()) {
-                if (c >= n)
+            for (node_t u = 0; u < n; ++u) {
+                if (get_color(u) >= n)
                     return false;
             }
 
             // heuristic check to detect duplicates: the sum of labels needs to be (n choose 2)
             uint64_t sum = 0;
-            for (const auto l: labels()) {
-                if (l >= n)
+            for (node_t u = 0; u < n; ++u) {
+                if (label_at(u) >= n)
                     return false;
-                sum += l;
+                sum += label_at(u);
             }
             if (sum != static_cast<uint64_t>(n) * (n - 1) / 2)
                 return false;
 
-            for (node_t i = 1; i < num_nodes(); ++i) {
+            for (node_t i = 1; i < n; ++i) {
                 const auto u = label_at(i - 1);
                 const auto v = label_at(i);
 

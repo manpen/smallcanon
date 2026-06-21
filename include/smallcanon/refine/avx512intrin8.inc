@@ -7,6 +7,7 @@
 #include <smallcanon/adj_matrix.hpp>
 #include <smallcanon/coloring.hpp>
 #include <smallcanon/simd/sort.hpp>
+#include <smallcanon/utility.hpp>
 
 #include <smallcanon/simd/avx512defs.hpp>
 
@@ -23,28 +24,20 @@ namespace smallcanon::refine::avx512intrin {
         const uint8_t enabled_eq_mask;
 
         static uint64_t import_color(const Coloring8& coloring) {
-            // this should become a simple load ... but this version should be more portable.
-            uint64_t color = 0;
-            for (node_t i = 0; i < coloring.num_nodes(); ++i) {
-                color |= static_cast<uint64_t>(coloring.get_color(i)) << (8 * i);
-            }
-            return color;
+            return read_le_u64(coloring.colors().data());
         }
 
         static void export_color(Coloring8& coloring, uint64_t color, uint64_t labels) {
-            for (node_t i = 0; i < coloring.num_nodes(); ++i, color >>= 8, labels >>= 8) {
-                coloring.colors()[i] = static_cast<uint8_t>(color);
-                coloring.labels()[i] = static_cast<uint8_t>(labels);
-            }
+            static_assert(std::is_same_v<typename std::decay_t<decltype(coloring)>::scolor_t, uint8_t>);
+            write_le_u64(coloring.colors().data(), color);
+            write_le_u64(coloring.labels().data(), labels);
         }
 
         static u64x8_t import_graph(const AdjMatrix8& graph) {
-            // this should become a simple load ... but this version should be more portable.
-            uint64_t single_graph = 0;
-            for (int i = 0; i < 8; ++i) {
-                single_graph |= static_cast<uint64_t>(*graph.row_upto_capacity(i).data()) << (8 * i);
-            }
+            static_assert(std::is_same_v<typename std::decay_t<decltype(graph)>::word_t, uint8_t>);
 
+            // this should become a simple load ... but this version should be more portable.
+            uint64_t single_graph = read_le_u64(graph.buffer().data());
             const auto rows = (xs::broadcast(single_graph) >> u64cont<0, 8>()) & 0xff;
             return rows * 0x0101010101010101;
         }
