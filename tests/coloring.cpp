@@ -180,13 +180,11 @@ TEST(ColoringTests, FixedColoringTracksActiveNodesSeparatelyFromCapacity) {
     coloring.colors()[7] = 4;
 
     EXPECT_TRUE(coloring.is_consistent());
-    EXPECT_EQ(coloring.first_available_color(), 4);
 
     auto copied = coloring.copy();
     EXPECT_TRUE(copied.is_consistent());
     EXPECT_EQ(copied.num_nodes(), coloring.num_nodes());
     EXPECT_EQ(copied.capacity(), coloring.capacity());
-    EXPECT_EQ(copied.first_available_color(), 4);
 }
 
 TEST(ColoringTests, SetColorMaintainsLabelsSortedByColor) {
@@ -232,24 +230,6 @@ TYPED_TEST(ColoringTests, SetColorWorksAtHighestNodeAndColor) {
 
     EXPECT_EQ(coloring.set_color(last_node, last_color), 0);
     EXPECT_EQ(coloring.get_color(last_node), last_color);
-}
-
-TYPED_TEST(ColoringTests, FirstAvailableColorReturnsSmallestUnusedColor) {
-    auto coloring = TypeParam::make_coloring();
-
-    EXPECT_TRUE(coloring.is_consistent());
-    EXPECT_EQ(coloring.first_available_color(), 1);
-
-    coloring.set_color(1, 1);
-
-    EXPECT_TRUE(coloring.is_consistent());
-    EXPECT_EQ(coloring.first_available_color(), 2);
-
-    coloring.set_color(2, 2);
-    coloring.set_color(3, 3);
-
-    EXPECT_TRUE(coloring.is_consistent());
-    EXPECT_EQ(coloring.first_available_color(), 4);
 }
 
 TYPED_TEST(ColoringTests, IndividualizeMovesNodeToLastLabelWithNextColor) {

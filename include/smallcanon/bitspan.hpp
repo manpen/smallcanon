@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <smallcanon/utility.hpp>
+
 namespace smallcanon {
     // iterates over all bits that are set in v
     template<std::unsigned_integral T>
@@ -45,7 +47,7 @@ namespace smallcanon {
         }
 
         /// Returns whether bit i is set.
-        [[nodiscard]] constexpr bool get_bit(size_t i) const noexcept {
+        [[nodiscard]] SMALLCANON_ALWAYS_INLINE constexpr bool get_bit(size_t i) const noexcept {
             const auto [offset, mask] = offset_and_mask(i);
             return words_[offset] & mask;
         }
@@ -113,7 +115,7 @@ namespace smallcanon {
 
     private:
         /// Returns the backing word offset and bit mask for bit i.
-        constexpr std::pair<size_t, unsigned_t> offset_and_mask(size_t i) const noexcept {
+        [[nodiscard]] SMALLCANON_ALWAYS_INLINE std::pair<size_t, unsigned_t> offset_and_mask(size_t i) const noexcept {
             assert(i < size());
             const size_t offset = i / BITS_PER_WORD;
             const auto mask = static_cast<unsigned_t>(unsigned_t{1} << (i % BITS_PER_WORD));
@@ -145,7 +147,7 @@ namespace smallcanon {
         }
 
         /// Returns whether bit i is set.
-        [[nodiscard]] constexpr bool get_bit(size_t i) const noexcept {
+        [[nodiscard]] [[nodiscard]] SMALLCANON_ALWAYS_INLINE bool get_bit(size_t i) const noexcept {
             const auto mask = mask_of(i);
             return word_ & mask;
         }
@@ -203,14 +205,8 @@ namespace smallcanon {
         }
 
     private:
-        /// Returns the single backing word for a one-word range.
-        static constexpr T& word_from_range(T *begin, T *end) noexcept {
-            assert(begin + 1 == end);
-            return *begin;
-        }
-
         /// Returns the bit mask for bit i.
-        constexpr unsigned_t mask_of(size_t i) const noexcept {
+        [[nodiscard]] SMALLCANON_ALWAYS_INLINE unsigned_t mask_of(size_t i) const noexcept {
             assert(i < size());
             return static_cast<unsigned_t>(unsigned_t{1} << i);
         }
