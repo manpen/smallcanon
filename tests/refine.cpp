@@ -68,6 +68,7 @@ namespace {
     using RefinementTestTypes = testing::Types<
 #if XSIMD_WITH_AVX512F
             RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix8>,
+            RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix16>,
 #endif
             RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix8>,
             RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix16>,
@@ -235,7 +236,6 @@ TYPED_TEST(RefinementTests, MatchesNaivePartitionOnCuratedDataset) {
                             }
                         }
 
-
                         TestFixture::refinement_t::refine(graph, coloring);
 
                         {
@@ -277,7 +277,17 @@ TYPED_TEST(RefinementTests, InvarianceNodePermutation) {
         std::visit(
                 [&](auto&& graph) {
                     if constexpr (std::is_same_v<std::decay_t<decltype(graph)>, graph_t>) {
+                        const auto n = graph.num_nodes();
                         typename TestFixture::coloring_t coloring(graph.num_nodes());
+
+                        // partially precolor half of all instances
+                        auto num_colored_nodes = std::uniform_int_distribution<smallcanon::node_t>{0, n / 2}(rng);
+                        for (auto i = num_colored_nodes; i; --i) {
+                            auto node = std::uniform_int_distribution<smallcanon::node_t>{0, n - 1}(rng);
+                            auto color = std::uniform_int_distribution<smallcanon::node_t>{0, n - 1}(rng);
+                            coloring.set_color(node, color);
+                        }
+
                         auto [mapped_graph, mapped_coloring, mapping] = permute_graph(rng, graph, coloring);
 
                         TestFixture::refinement_t::refine(graph, coloring);

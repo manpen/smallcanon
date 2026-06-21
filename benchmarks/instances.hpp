@@ -70,8 +70,6 @@ auto load_nauty_instances() {
         }
     }
 
-    std::cout << "Instances (for " << kMaxN << "): " << instances.size() << std::endl;
-
     return instances;
 }
 #endif

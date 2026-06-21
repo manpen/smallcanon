@@ -26,6 +26,7 @@ namespace smallcanon::refine::avx512intrin {
     };
 } // namespace smallcanon::refine::avx512intrin
 
+#include <smallcanon/refine/avx512intrin16.inc>
 #include <smallcanon/refine/avx512intrin8.inc>
 
 #endif

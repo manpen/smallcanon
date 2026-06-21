@@ -8,7 +8,7 @@ namespace smallcanon::simd::sort::sort_details {
     consteval std::array<T, xs::batch<T, A>::size>
     compute_swizzle_array(std::initializer_list<std::pair<size_t, size_t>> list) {
         constexpr size_t kLanes = xs::batch<T, A>::size;
-        static_assert(kLanes < 64); // blendmask only supports 64bits
+        static_assert(kLanes <= 64); // blendmask only supports 64bits
         static_assert(std::has_single_bit(NumItems));
 
         std::array<T, kLanes> swizzle;

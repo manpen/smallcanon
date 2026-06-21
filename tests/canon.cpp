@@ -38,6 +38,7 @@ namespace {
     using CanonTypes = testing::Types<
 #if XSIMD_WITH_AVX512F
             CanonCase<smallcanon::AdjMatrix8, smallcanon::refine::avx512intrin::AVX512<smallcanon::AdjMatrix8>>,
+            CanonCase<smallcanon::AdjMatrix16, smallcanon::refine::avx512intrin::AVX512<smallcanon::AdjMatrix16>>,
 #endif
             CanonCase<smallcanon::AdjMatrix8, smallcanon::refine::Naive<smallcanon::AdjMatrix8>>,
             CanonCase<smallcanon::AdjMatrix16, smallcanon::refine::Naive<smallcanon::AdjMatrix16>>,
@@ -112,7 +113,7 @@ TYPED_TEST(CanonTests, CanonicalAdjacencyIsInvariantUnderNodePermutation) {
 
     coloring_t mapped_coloring(mapped_graph.num_nodes());
 
-    auto mapped_solver = smallcanon::solver::Solver(mapped_graph);
+    auto mapped_solver = TypeParam::make_solver(mapped_graph);
     const auto mapped_leaf = mapped_solver.canonize(mapped_coloring);
 
     expect_discrete_coloring(leaf, graph.num_nodes());

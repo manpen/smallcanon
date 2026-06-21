@@ -115,6 +115,7 @@ void bm_avx512_instrinsic(benchmark::State& state) {
 
 #if XSIMD_WITH_AVX512F
 BENCHMARK_TEMPLATE(bm_avx512_instrinsic, smallcanon::AdjMatrix8);
+BENCHMARK_TEMPLATE(bm_avx512_instrinsic, smallcanon::AdjMatrix16);
 #endif
 BENCHMARK_TEMPLATE(bm_nauty_refine, smallcanon::AdjMatrix8);
 BENCHMARK_TEMPLATE(bm_naive, smallcanon::AdjMatrix8);

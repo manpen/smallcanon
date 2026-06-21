@@ -52,5 +52,17 @@ namespace smallcanon::simd::avx512defs {
     inline u64x8_t popcnt(const u64x8_t v) noexcept {
         return _mm512_popcnt_epi64(v);
     }
+
+
+    SMALLCANON_ALWAYS_INLINE u32x16_t hash_fmix32(u32x16_t h) {
+        h ^= h >> 16;
+        h *= 0x85ebca6b;
+        h ^= h >> 13;
+        h *= 0xc2b2ae35;
+        h ^= h >> 16;
+
+        return h;
+    }
+
 #endif
 } // namespace smallcanon::simd::avx512defs
