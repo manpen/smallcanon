@@ -131,6 +131,7 @@ endif ()
 if (BENCHMARKS)
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
             googlebenchmark
             GIT_REPOSITORY https://github.com/google/benchmark.git
@@ -138,6 +139,13 @@ if (BENCHMARKS)
             GIT_SHALLOW TRUE
     )
     FetchContent_MakeAvailable(googlebenchmark)
+
+    target_compile_options(benchmark PRIVATE
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-c2y-extensions>
+    )
+    target_compile_options(benchmark_main PRIVATE
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-c2y-extensions>
+    )
 
     add_subdirectory(benchmarks)
 endif ()
