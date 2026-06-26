@@ -49,6 +49,7 @@ struct NautyInstances {
 template<typename G>
 auto load_nauty_instances() {
     constexpr size_t kMaxN = G::storage_t::kCapacity;
+
     using instance_t = NautyInstances<kMaxN>;
     std::vector<instance_t> instances;
     for (auto fn: {"all_n8.g6", "all_m11.g6", "curated.g6"}) {

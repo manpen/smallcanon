@@ -3,6 +3,8 @@
 #include <smallcanon/simd/continuation_helper.hpp>
 #include <xsimd/xsimd.hpp>
 
+#define SMALLCANON_AVX512_ALIGNED alignas(64)
+
 namespace smallcanon::simd::avx512defs {
 #if XSIMD_WITH_AVX512F
     namespace xs = xsimd;
