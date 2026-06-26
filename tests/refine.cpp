@@ -190,8 +190,8 @@ TYPED_TEST(RefinementTests, InitialColorsAreRespectedCircle) {
     EXPECT_NE(coloring.get_color(1), color_of_other);
     EXPECT_EQ(coloring.get_color(2), color_of_other);
 
-    EXPECT_TRUE(coloring.get_color(0) < 2);
-    EXPECT_TRUE(coloring.get_color(1) < 2);
+    EXPECT_TRUE(coloring.get_color(0) < 3);
+    EXPECT_TRUE(coloring.get_color(1) < 3);
 }
 
 TYPED_TEST(RefinementTests, DefaultNodeCount) {

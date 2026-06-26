@@ -106,19 +106,24 @@ namespace smallcanon::refine {
 
                 bool change = false;
                 color = 0;
+                bool discrete = true;
                 for (node_t i: graph.nodes()) {
                     const auto node = fingerprints[i].back();
                     fingerprints[i].pop_back();
 
                     // we popped the node id from the back of the vector, so comparing the fingerprints is fine
-                    color += (i > 0) && fingerprints[i] != fingerprints[i - 1];
+                    if ((i > 0) && fingerprints[i] != fingerprints[i - 1]) {
+                        color = i;
+                    } else {
+                        discrete = false;
+                    }
 
                     const auto prev_color = coloring.get_color(node);
                     coloring.set_color(node, color);
                     change |= (color != prev_color);
                 }
 
-                if (!change || color + 1 == graph.num_nodes()) {
+                if (!change || discrete) {
                     break;
                 }
             }

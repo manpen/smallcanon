@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <concepts>
 #include <cstdint>
+#include <random>
 #include <ranges>
 #include <span>
 #include <type_traits>
@@ -68,13 +69,93 @@ namespace {
             seen[label] = true;
 
             const auto color = coloring.get_color(label);
-            if (i > 0 && color < previous_color) {
+            if (i == 0 && color != 0) {
+                return testing::AssertionFailure() << "first label has color " << color << " instead of 0";
+            }
+            if (i > 0 && color != previous_color && color != i) {
                 return testing::AssertionFailure()
-                       << "label at position " << i << " has color " << color << " after color " << previous_color;
+                       << "label at position " << i << " has color " << color << " after color " << previous_color
+                       << "; expected either " << previous_color << " or " << i;
             }
             previous_color = color;
         }
 
+        return testing::AssertionSuccess();
+    }
+
+    template<typename Coloring>
+    std::vector<smallcanon::color_t> snapshot_colors(const Coloring& coloring) {
+        std::vector<smallcanon::color_t> colors(coloring.num_nodes());
+        for (smallcanon::node_t u = 0; u < coloring.num_nodes(); ++u) {
+            colors[u] = coloring.get_color(u);
+        }
+        return colors;
+    }
+
+    template<typename Coloring>
+    testing::AssertionResult node_has_unique_color(const Coloring& coloring, smallcanon::node_t node) {
+        const auto color = coloring.get_color(node);
+        for (smallcanon::node_t other = 0; other < coloring.num_nodes(); ++other) {
+            if (other != node && coloring.get_color(other) == color) {
+                return testing::AssertionFailure()
+                       << "node " << node << " has color " << color << ", also used by node " << other;
+            }
+        }
+        return testing::AssertionSuccess();
+    }
+
+    template<typename Coloring>
+    std::vector<smallcanon::color_t> consistency_preserving_colors_for_node(const Coloring& coloring,
+                                                                            smallcanon::node_t node) {
+        const auto n = coloring.num_nodes();
+        smallcanon::node_t pos = 0;
+        for (; pos < n; ++pos) {
+            if (static_cast<smallcanon::node_t>(coloring.labels()[pos]) == node) {
+                break;
+            }
+        }
+        if (pos == n) {
+            return {};
+        }
+
+        const auto old_color = coloring.get_color(node);
+        smallcanon::node_t class_start = pos;
+        while (class_start > 0 && coloring.color_at_label(class_start - 1) == old_color) {
+            --class_start;
+        }
+
+        smallcanon::node_t class_end = pos;
+        while (class_end + 1 < n && coloring.color_at_label(class_end + 1) == old_color) {
+            ++class_end;
+        }
+
+        std::vector<smallcanon::color_t> colors{old_color};
+        if (class_start < class_end) {
+            colors.push_back(class_end);
+        } else if (class_start > 0) {
+            colors.push_back(coloring.color_at_label(class_start - 1));
+        }
+        return colors;
+    }
+
+    template<typename Coloring>
+    testing::AssertionResult other_nodes_kept_colors(const Coloring& coloring,
+                                                     std::span<const smallcanon::color_t> previous_colors,
+                                                     smallcanon::node_t individualized_node) {
+        if (previous_colors.size() != coloring.num_nodes()) {
+            return testing::AssertionFailure() << "color snapshot has " << previous_colors.size() << " colors for "
+                                               << coloring.num_nodes() << " nodes";
+        }
+
+        for (smallcanon::node_t other = 0; other < coloring.num_nodes(); ++other) {
+            if (other == individualized_node) {
+                continue;
+            }
+            if (coloring.get_color(other) != previous_colors[other]) {
+                return testing::AssertionFailure() << "node " << other << " changed color from "
+                                                   << previous_colors[other] << " to " << coloring.get_color(other);
+            }
+        }
         return testing::AssertionSuccess();
     }
 } // namespace
@@ -169,9 +250,9 @@ TEST(ColoringTests, FixedColoringTracksActiveNodesSeparatelyFromCapacity) {
     EXPECT_EQ(coloring.num_nodes(), 5);
     EXPECT_EQ(coloring.capacity(), 8);
 
-    coloring.set_color(1, 1);
-    coloring.set_color(2, 2);
-    coloring.set_color(3, 3);
+    coloring.individualize(1);
+    coloring.individualize(2);
+    coloring.individualize(3);
 
     EXPECT_TRUE(coloring.is_consistent());
 
@@ -190,17 +271,19 @@ TEST(ColoringTests, FixedColoringTracksActiveNodesSeparatelyFromCapacity) {
 TEST(ColoringTests, SetColorMaintainsLabelsSortedByColor) {
     smallcanon::Coloring8 coloring(6);
 
-    EXPECT_EQ(coloring.set_color(4, 2), 0);
-    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
-
-    EXPECT_EQ(coloring.set_color(1, 2), 0);
-    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
-
-    EXPECT_EQ(coloring.set_color(3, 1), 0);
+    EXPECT_EQ(coloring.set_color(4, 5), 0);
     EXPECT_TRUE(coloring.is_consistent());
     ASSERT_TRUE(labels_are_sorted_by_color(coloring));
 
-    EXPECT_EQ(coloring.set_color(4, 0), 2);
+    EXPECT_EQ(coloring.set_color(1, 4), 0);
+    EXPECT_TRUE(coloring.is_consistent());
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
+
+    EXPECT_EQ(coloring.set_color(3, 3), 0);
+    EXPECT_TRUE(coloring.is_consistent());
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
+
+    EXPECT_EQ(coloring.set_color(2, 2), 0);
     EXPECT_TRUE(coloring.is_consistent());
     ASSERT_TRUE(labels_are_sorted_by_color(coloring));
 }
@@ -216,11 +299,14 @@ TYPED_TEST(ColoringTests, NewColoringInitializesColorsToZero) {
 TYPED_TEST(ColoringTests, SetColorReturnsPreviousColorAndUpdatesColor) {
     auto coloring = TypeParam::make_coloring();
 
-    EXPECT_EQ(coloring.set_color(1, 3), 0);
-    EXPECT_EQ(coloring.get_color(1), 3);
+    constexpr auto last_node = TypeParam::expected_capacity - 1;
 
-    EXPECT_EQ(coloring.set_color(1, 5), 3);
-    EXPECT_EQ(coloring.get_color(1), 5);
+    EXPECT_EQ(coloring.set_color(last_node, last_node), 0);
+    EXPECT_EQ(coloring.get_color(last_node), last_node);
+
+    EXPECT_EQ(coloring.set_color(last_node, last_node), last_node);
+    EXPECT_EQ(coloring.get_color(last_node), last_node);
+    EXPECT_TRUE(coloring.is_consistent());
 }
 
 TYPED_TEST(ColoringTests, SetColorWorksAtHighestNodeAndColor) {
@@ -232,49 +318,83 @@ TYPED_TEST(ColoringTests, SetColorWorksAtHighestNodeAndColor) {
     EXPECT_EQ(coloring.get_color(last_node), last_color);
 }
 
-TYPED_TEST(ColoringTests, IndividualizeMovesNodeToLastLabelWithNextColor) {
+TYPED_TEST(ColoringTests, RandomSetColorPreservesAssignedColorOtherColorsAndConsistency) {
+    static constexpr int kRepeats = 300;
+
+    auto rng = std::mt19937_64{0x5eed5eedULL + TypeParam::expected_capacity};
+
+    for (int repetition = 0; repetition < kRepeats; ++repetition) {
+        auto coloring = TypeParam::make_coloring();
+        const auto n =
+                std::uniform_int_distribution<smallcanon::node_t>{coloring.num_nodes() / 2, coloring.num_nodes()}(rng);
+        auto node_dist = std::uniform_int_distribution<smallcanon::node_t>{0, n - 1};
+        auto col_dist = std::uniform_int_distribution<smallcanon::color_t>{0, n - 1};
+
+        for (smallcanon::node_t step = 0; step < 2 * n; ++step) {
+            const auto node = node_dist(rng);
+            const auto col = col_dist(rng);
+
+            const auto copied = coloring.copy();
+            coloring.set_color(node, col);
+
+            for (smallcanon::node_t u = 0; u < n; ++u) {
+                if (u == node) {
+                    ASSERT_EQ(coloring.get_color(u), col);
+                } else {
+                    ASSERT_EQ(coloring.get_color(u), copied.get_color(u));
+                }
+            }
+        }
+    }
+}
+
+TYPED_TEST(ColoringTests, IndividualizeCreatesUniqueColorWithoutChangingOtherNodeColors) {
     auto coloring = TypeParam::make_coloring();
 
-    constexpr smallcanon::node_t first_node = 3;
-    const auto previous_last = static_cast<smallcanon::node_t>(coloring.labels()[coloring.num_nodes() - 1]);
-    const auto first_color = coloring.get_color(previous_last) + 1;
+    const auto n = coloring.num_nodes();
+    coloring.colors()[n - 4] = static_cast<typename TypeParam::coloring_t::scolor_t>(n - 4);
+    coloring.colors()[n - 3] = static_cast<typename TypeParam::coloring_t::scolor_t>(n - 4);
+    coloring.colors()[n - 2] = static_cast<typename TypeParam::coloring_t::scolor_t>(n - 2);
+    coloring.colors()[n - 1] = static_cast<typename TypeParam::coloring_t::scolor_t>(n - 2);
+    EXPECT_TRUE(coloring.is_consistent());
+    ASSERT_TRUE(labels_are_sorted_by_color(coloring));
 
+    const smallcanon::node_t first_node = n - 5;
+    const auto colors_before_first = snapshot_colors(coloring);
     coloring.individualize(first_node);
 
     EXPECT_TRUE(coloring.is_consistent());
     ASSERT_TRUE(labels_are_sorted_by_color(coloring));
-    EXPECT_EQ(coloring.labels()[coloring.num_nodes() - 1], first_node);
-    EXPECT_EQ(coloring.get_color(first_node), first_color);
+    EXPECT_TRUE(node_has_unique_color(coloring, first_node));
+    EXPECT_TRUE(other_nodes_kept_colors(coloring, colors_before_first, first_node));
 
-    constexpr smallcanon::node_t second_node = 1;
-    const auto previous_second_last = static_cast<smallcanon::node_t>(coloring.labels()[coloring.num_nodes() - 1]);
-    const auto second_color = coloring.get_color(previous_second_last) + 1;
-
+    const smallcanon::node_t second_node = n - 3;
+    const auto colors_before_second = snapshot_colors(coloring);
     coloring.individualize(second_node);
 
     EXPECT_TRUE(coloring.is_consistent());
     ASSERT_TRUE(labels_are_sorted_by_color(coloring));
-    EXPECT_EQ(coloring.labels()[coloring.num_nodes() - 1], second_node);
-    EXPECT_EQ(coloring.get_color(second_node), second_color);
-    EXPECT_EQ(coloring.get_color(first_node), first_color);
+    EXPECT_TRUE(node_has_unique_color(coloring, second_node));
+    EXPECT_TRUE(other_nodes_kept_colors(coloring, colors_before_second, second_node));
 }
 
 TYPED_TEST(ColoringTests, CopyPreservesColorsAndIsIndependent) {
     auto coloring = TypeParam::make_coloring();
     constexpr auto last_node = TypeParam::expected_capacity - 1;
 
-    coloring.set_color(0, 1);
-    EXPECT_TRUE(coloring.is_consistent());
     coloring.set_color(last_node, last_node);
+    coloring.set_color(0, last_node - 1);
+    EXPECT_TRUE(coloring.is_consistent());
 
     auto copied = coloring.copy();
 
     EXPECT_EQ(copied.capacity(), coloring.capacity());
-    EXPECT_EQ(copied.get_color(0), 1);
+    EXPECT_EQ(copied.get_color(0), last_node - 1);
     EXPECT_EQ(copied.get_color(last_node), last_node);
 
-    copied.set_color(0, 2);
+    copied.set_color(last_node - 1, last_node - 2);
 
-    EXPECT_EQ(coloring.get_color(0), 1);
-    EXPECT_EQ(copied.get_color(0), 2);
+    EXPECT_EQ(coloring.get_color(last_node - 1), 0);
+    EXPECT_EQ(copied.get_color(last_node - 1), last_node - 2);
+    EXPECT_TRUE(copied.is_consistent());
 }

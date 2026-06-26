@@ -70,7 +70,6 @@ namespace smallcanon::refine::avx512intrin {
 
         // In preliminary tests, the lookup table is ~1ns faster, but at the cost of using 2kb of constants.
         // Investigate later again
-#if 1
         consteval static std::array<uint64_t, 128> popcnt_lookup() {
             std::array<uint64_t, 128> result{};
             for (uint64_t idx = 0; idx < 256; idx += 2) {
@@ -80,7 +79,8 @@ namespace smallcanon::refine::avx512intrin {
                     if (!(pattern & 1))
                         continue;
                     for (uint j = i; j < 8; ++j) {
-                        popcnt += uint64_t(1) << 8 * j;
+                        popcnt &= ~(uint64_t(0xff) << (8 * j));
+                        popcnt |= uint64_t(i) << 8 * j;
                     }
                 }
                 result[idx / 2] = popcnt;
@@ -92,15 +92,8 @@ namespace smallcanon::refine::avx512intrin {
             constexpr auto table = popcnt_lookup();
             return u8x64_t(xs::broadcast(table[x / 2]));
         }
-#else
-        static u8x64_t compute_prefixsum_u8x8(uint8_t same_fingerprint_as_pred) {
-            // since we can easily fit 8 copies of 8 bits each into a register, we can abuse popcnt to compute a prefix
-            // sum.
-            u8x64_t masked = xs::bitwise_cast<uint8_t>(xs::broadcast_as<uint64_t>(0xff7f3f1f0f070301)) &
-                             same_fingerprint_as_pred;
-            return popcnt(masked);
-        }
-#endif
+
+
     public:
         explicit AVX512(const graph_t& egraph) :
             graph(import_graph(egraph)),
