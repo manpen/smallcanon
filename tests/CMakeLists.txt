@@ -7,6 +7,7 @@ SET(SMALL_CANON_TESTS
         canon
         coloring
         parser
+        prefix
         refine
         simd_sort
 )
