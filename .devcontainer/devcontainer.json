@@ -1,0 +1,9 @@
+{
+  "name": "Debian13 Clang22",
+  "build": {
+    "dockerfile": "clang22.dockerfile"
+  },
+  "remoteUser": "developer",
+  "containerUser": "developer",
+  "updateRemoteUserUID": true
+}
