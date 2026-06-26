@@ -19,10 +19,12 @@ namespace smallcanon {
 
         template<typename SC>
         struct Leaf {
-            bool has_value = false;
-            Coloring<SC> leaf;
-            Orbits orbits;
-            group_order_t group_size = 1;
+            bool has_value = false; // whether there's actually a leaf stored in this struct
+            Coloring<SC> leaf; // discrete coloring at leaf
+            std::vector<node_t> path; // individualized vertices on the root-to-leaf path
+
+            Orbits orbits; // orbit partition related with this leaf
+            group_order_t group_size = 1; // group size related with this leaf
 
             explicit Leaf(node_t n) : leaf(n), orbits(n) {}
 
@@ -148,7 +150,6 @@ namespace smallcanon {
 
                 // best leaf found so far
                 leaf_t best_leaf(n);
-                std::vector<node_t> best_leaf_path;
                 // length of prefix in common with best-leaf path
                 size_t best_leaf_lca = 0;
 
@@ -161,13 +162,9 @@ namespace smallcanon {
                 // additional comparison leaves and orbit partitions
                 // constexpr size_t NUM_COMP_LEAFS = 1;
                 // bool has_comp_leaf[NUM_COMP_LEAFS];
-                // // Note: I hate this
                 // std::array<Coloring<SC>, NUM_COMP_LEAFS> comp_leaf = {
                 //     Coloring<SC>(n)
                 // };
-
-                // TODO save last place in-common with "best-leaf-path"
-                // TODO so that we can jump there immediately when leaf matches best-leaf
 
                 bool is_backtrack = false;
                 while (true) {
@@ -190,10 +187,10 @@ namespace smallcanon {
                                 // TODO set best_leaf_lca to parent!
                                 // TODO invalidate all comp leafs?
                                 // our best leaf orbits have become invalid
-                                DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
+                                DEBUG_STREAM << "c [compare] this is the best-leaf now" << std::endl;
                                 best_leaf.replace(coloring);
                                 best_leaf_lca = stack.size();
-                                stack.copy_path_into(best_leaf_path);
+                                stack.copy_path_into(best_leaf.path);
                             } else {
                                 // (1) TODO compare invariants
                                 // (2) when invariants equal, actually compare leafs
@@ -201,18 +198,19 @@ namespace smallcanon {
                                 const auto compare = compare::compare(graph, best_leaf.leaf, coloring);
 
                                 if (compare == std::strong_ordering::equal) {
-                                    // TODO leaf agrees with best-leaf? jump to best-leaf LCA
-                                    // TODO jumping to an LCA must purge all "deeper" leafs
+                                    // leaf agrees with best-leaf? jump to best-leaf LCA
                                     best_leaf.orbits.record_isomorphic_colorings(best_leaf.leaf, coloring);
                                     ++stats.automorphisms;
                                     backtrack_to = best_leaf_lca;
                                     DEBUG_STREAM << "c [compare] backtrack_to=" << backtrack_to << std::endl;
+
+                                    // TODO jumping to an LCA must purge all "deeper" leaves, if they exist
                                 } else if (compare == std::strong_ordering::greater) {
                                     DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
                                     ++stats.best_leaf_update;
                                     best_leaf.replace(coloring);
                                     best_leaf_lca = stack.size();
-                                    stack.copy_path_into(best_leaf_path);
+                                    stack.copy_path_into(best_leaf.path);
                                 }
 
                                 // TODO if this doesn't agree with any already-stored leaf, then...
@@ -258,7 +256,7 @@ namespace smallcanon {
                         // the best leaf path downwards
                         if (on_best_leaf_path) {
                             --best_leaf_lca;
-                            best_leaf.group_size *= best_leaf.orbits.orbit_size(best_leaf_path[best_leaf_lca] - 1);
+                            best_leaf.group_size *= best_leaf.orbits.orbit_size(best_leaf.path[best_leaf_lca] - 1);
                         }
                         stack.pop();
 
