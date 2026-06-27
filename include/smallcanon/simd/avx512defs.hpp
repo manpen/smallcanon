@@ -13,12 +13,12 @@ namespace smallcanon::simd::avx512defs {
 #define SMALLCANON_WITH_AVX512 1
     namespace xs = xsimd;
 
-    using arch = xs::avx512vl;
+    using arch = xs::best_arch;
     using arch128 = xs::avx512vl_128;
     using arch256 = xs::avx512vl_256;
 
 #define SMALLCANON_NEW_POPCNT(T, WIDTH, AWIDTH)                                                                        \
-    inline T popcnt(const T v) noexcept {                                                                              \
+    SMALLCANON_ALWAYS_INLINE static T popcnt(const T v) noexcept {                                                     \
         return _mm##AWIDTH##_popcnt_epi##WIDTH(v);                                                                     \
     }
 
@@ -44,6 +44,30 @@ namespace smallcanon::simd::avx512defs {
 
 #undef SMALLCANON_NEW_BATCHES
 #undef SMALLCANON_NEW_BATCH
+
+    SMALLCANON_ALWAYS_INLINE static u32x8_t shrink_to_u32(u64x8_t d) noexcept {
+        return _mm512_cvtepi64_epi32(d);
+    }
+
+    SMALLCANON_ALWAYS_INLINE static u64x8_t widen_to_u64(u32x8_t d) noexcept {
+        return _mm512_cvtepu32_epi64(d);
+    }
+
+    SMALLCANON_ALWAYS_INLINE static u32x16_t widen_to_u32(const u8x16_t values) noexcept {
+        return {_mm512_cvtepu8_epi32(values)};
+    }
+
+    SMALLCANON_ALWAYS_INLINE static u32x16_t widen_to_u32(const u16x16_t values) noexcept {
+        return {_mm512_cvtepu16_epi32(values)};
+    }
+
+    SMALLCANON_ALWAYS_INLINE static u8x16_t shrink_to_u8(const u32x16_t values) noexcept {
+        return {_mm512_cvtepi32_epi8(values)};
+    }
+
+    SMALLCANON_ALWAYS_INLINE static u8x16_t shrink_to_u8(const u16x16_t values) noexcept {
+        return {_mm256_cvtepi16_epi8(values)};
+    }
 
     SMALLCANON_ALWAYS_INLINE u32x16_t hash_fmix32(u32x16_t h) {
         h ^= h >> 16;

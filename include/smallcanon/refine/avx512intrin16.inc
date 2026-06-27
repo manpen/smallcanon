@@ -42,30 +42,14 @@ namespace smallcanon::refine::avx512intrin {
             return xs::select(active, colors, u8x16_t::broadcast(0xff));
         }
 
-        static u32x16_t zero_extend_low_u8_to_u32(const u8x16_t values) noexcept {
-            return {_mm512_cvtepu8_epi32(values)};
-        }
-
-        static u32x16_t zero_extend_low_u16_to_u32(const u16x16_t values) noexcept {
-            return {_mm512_cvtepu16_epi32(values)};
-        }
-
-        static u8x16_t truncate_u32_to_low_u8(const u32x16_t values) noexcept {
-            return {_mm512_cvtepi32_epi8(values)};
-        }
-
-        static u8x16_t truncate_u16_to_low_u8(const u16x16_t values) noexcept {
-            return {_mm256_cvtepi16_epi8(values)};
-        }
-
-        static void export_color(coloring_t& external_coloring, u8x16_t coloring, u8x16_t labels) {
+        static void export_color(coloring_t& external_coloring, u8x16_t coloring, u8x16_t labels) noexcept {
             static_assert(std::is_same_v<coloring_t::storage_t::scolor_t, uint8_t>);
 
             coloring.store_unaligned(external_coloring.colors().data());
             labels.store_unaligned(external_coloring.labels().data());
         }
 
-        static u16x16_t import_graph(const graph_t& external_graph) {
+        static u16x16_t import_graph(const graph_t& external_graph) noexcept {
             static_assert(std::is_same_v<graph_t::storage_t::word_t, uint16_t>);
             return u16x16_t::load_unaligned(external_graph.buffer().data());
         }
@@ -125,7 +109,7 @@ namespace smallcanon::refine::avx512intrin {
 
     public:
         explicit AVX512(const graph_t& egraph) :
-            external_graph(egraph), graph(import_graph(egraph)), degrees(zero_extend_low_u16_to_u32(popcnt(graph))),
+            external_graph(egraph), graph(import_graph(egraph)), degrees(widen_to_u32(popcnt(graph))),
             enabled_eq_mask(static_cast<uint16_t>((2 << external_graph.num_nodes()) - 1)) {}
 
         void refine_starting_at(coloring_t& external_coloring, [[maybe_unused]] node_t start) noexcept {
@@ -142,7 +126,7 @@ namespace smallcanon::refine::avx512intrin {
             uint16_t prev_neq_mask = 1; // impossible value
 
             u8x16_t colors_8b = import_color(external_coloring);
-            u32x16_t colors_32b = zero_extend_low_u8_to_u32(colors_8b);
+            u32x16_t colors_32b = widen_to_u32(colors_8b);
 
             u8x16_t labels_in_part_order;
 
@@ -164,7 +148,7 @@ namespace smallcanon::refine::avx512intrin {
                 }
                 prev_neq_mask = neq_mask;
 
-                labels_in_part_order = truncate_u32_to_low_u8(fingerprints & 0xf);
+                labels_in_part_order = shrink_to_u8(fingerprints & 0xf);
 
                 {
                     auto refined_colors = colors_from_mask16(neq_mask);
@@ -178,7 +162,7 @@ namespace smallcanon::refine::avx512intrin {
                     break;
                 }
 
-                colors_32b = zero_extend_low_u8_to_u32(colors_8b);
+                colors_32b = widen_to_u32(colors_8b);
             }
 
             export_color(external_coloring, colors_8b, labels_in_part_order);
