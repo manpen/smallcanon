@@ -9,6 +9,7 @@
 #include <smallcanon/simd/sort.hpp>
 #include <smallcanon/utility.hpp>
 
+#include <smallcanon/refine/avx512_colors_from_mask.inc>
 #include <smallcanon/simd/avx512defs.hpp>
 
 namespace smallcanon::refine::avx512intrin {
@@ -65,32 +66,6 @@ namespace smallcanon::refine::avx512intrin {
                     (xs::broadcast(color_uint64 | disabled_colors) << u64cont<60, 52>()) & 0xf000000000000000;
 
             return with_node_ids | colors_at_msb;
-        }
-
-
-        // In preliminary tests, the lookup table is ~1ns faster, but at the cost of using 2kb of constants.
-        // Investigate later again
-        consteval static std::array<uint64_t, 128> popcnt_lookup() {
-            std::array<uint64_t, 128> result{};
-            for (uint64_t idx = 0; idx < 256; idx += 2) {
-                uint64_t popcnt = 0;
-                uint64_t pattern = idx;
-                for (uint64_t i = 0; pattern; ++i, pattern >>= 1) {
-                    if (!(pattern & 1))
-                        continue;
-                    for (uint j = i; j < 8; ++j) {
-                        popcnt &= ~(uint64_t(0xff) << (8 * j));
-                        popcnt |= uint64_t(i) << 8 * j;
-                    }
-                }
-                result[idx / 2] = popcnt;
-            }
-            return result;
-        }
-
-        static u8x64_t compute_prefixsum_u8x8(uint8_t x) {
-            constexpr auto table = popcnt_lookup();
-            return u8x64_t(xs::broadcast(table[x / 2]));
         }
 
 
@@ -152,7 +127,7 @@ namespace smallcanon::refine::avx512intrin {
                 }
 
                 // we have 8 copies of prefix sums of u8x8
-                const auto prefixsum = compute_prefixsum_u8x8(new_color_mask);
+                const auto prefixsum = colors_from_mask8(new_color_mask);
 
                 // nice trick to avoid sorting back from fingerprint order back to node id order:
                 // we interpret each prefixsum copy as a uint64_t. In i-th lane now takes care of

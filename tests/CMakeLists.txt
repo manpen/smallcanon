@@ -5,6 +5,7 @@ SET(SMALL_CANON_TESTS
         adj_matrix_storage
         bitspan
         canon
+        colors_from_mask
         coloring
         parser
         prefix

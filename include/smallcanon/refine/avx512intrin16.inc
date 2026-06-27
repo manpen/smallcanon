@@ -11,6 +11,7 @@
 #include <smallcanon/simd/sort.hpp>
 #include <smallcanon/utility.hpp>
 
+#include <smallcanon/refine/avx512_colors_from_mask.inc>
 #include <smallcanon/simd/avx512defs.hpp>
 
 namespace smallcanon::refine::avx512intrin {
@@ -108,7 +109,6 @@ namespace smallcanon::refine::avx512intrin {
             refine_impl(external_coloring, 8);
         }
 
-
         void refine_impl(coloring_t& external_coloring, node_t min_rounds) const noexcept {
             auto ranks = zero_extend_low_u8_to_u32(import_color(external_coloring));
 
@@ -133,25 +133,10 @@ namespace smallcanon::refine::avx512intrin {
                 xs::store_aligned(hashes.data(), colors);
                 auto new_colors = hash_fmix32(colors);
 
-#define SMALLCANON_AVX512G16_STEP(u)                                                                                   \
-    {                                                                                                                  \
-        const uint16_t mask = external_graph.row_upto_capacity(u)[0];                                                  \
-        new_colors = xs::select(xs::batch_bool<uint32_t, arch>::from_mask(mask), new_colors + hashes[u], new_colors);  \
-    }
-                SMALLCANON_AVX512G16_STEP(0)
-                SMALLCANON_AVX512G16_STEP(1)
-                SMALLCANON_AVX512G16_STEP(2)
-                SMALLCANON_AVX512G16_STEP(3)
-                SMALLCANON_AVX512G16_STEP(4)
-                SMALLCANON_AVX512G16_STEP(5)
-                SMALLCANON_AVX512G16_STEP(6)
-                SMALLCANON_AVX512G16_STEP(7)
-                SMALLCANON_AVX512G16_STEP(8)
-
-                for (node_t node = 9; node < n; node++) {
-                    SMALLCANON_AVX512G16_STEP(node);
+                for (node_t node = 0; node < n; node++) {
+                    const uint16_t mask = external_graph.row_upto_capacity(node)[0];
+                    new_colors = xs::select(xs::batch_bool<uint32_t, arch>::from_mask(mask), new_colors + hashes[node], new_colors);
                 }
-#undef SMALLCANON_AVX512G16_STEP
 
                 colors = new_colors;
 
@@ -180,7 +165,8 @@ namespace smallcanon::refine::avx512intrin {
 
 
                 labels = truncate_u32_to_low_u8(fingerprints & 0xf);
-                refined_colors = truncate_u16_to_low_u8(compute_prefixsum_u16x16(neq_mask));
+                // refined_colors = truncate_u16_to_low_u8(compute_prefixsum_u16x16(neq_mask));
+                refined_colors = colors_from_mask16(neq_mask);
                 refined_colors |= (labels << 4);
                 refined_colors = simd::sort::sort_details::sort_single_batch<16, uint8_t, true, arch>(refined_colors);
                 refined_colors &= 0xf;
