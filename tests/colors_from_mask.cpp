@@ -11,15 +11,16 @@
 #include <random>
 
 namespace {
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
     template<std::size_t Bits>
     struct ColorsFromMask;
 
     template<>
     struct ColorsFromMask<8> {
         using mask_t = std::uint8_t;
+        using result_t = smallcanon::refine::avx512intrin::u8x64_t;
 
-        static smallcanon::refine::avx512intrin::u8x64_t call(mask_t mask) noexcept {
+        static result_t call(mask_t mask) noexcept {
             return smallcanon::refine::avx512intrin::colors_from_mask8(mask);
         }
     };
@@ -27,8 +28,9 @@ namespace {
     template<>
     struct ColorsFromMask<16> {
         using mask_t = std::uint16_t;
+        using result_t = smallcanon::refine::avx512intrin::u8x16_t;
 
-        static smallcanon::refine::avx512intrin::u8x64_t call(mask_t mask) noexcept {
+        static result_t call(mask_t mask) noexcept {
             return smallcanon::refine::avx512intrin::colors_from_mask16(mask);
         }
     };
@@ -36,7 +38,7 @@ namespace {
     template<std::size_t Bits>
     concept SupportedColorsFromMask =
             std::has_single_bit(Bits) && requires(typename ColorsFromMask<Bits>::mask_t mask) {
-                { ColorsFromMask<Bits>::call(mask) } -> std::same_as<smallcanon::refine::avx512intrin::u8x64_t>;
+                { ColorsFromMask<Bits>::call(mask) } -> std::same_as<typename ColorsFromMask<Bits>::result_t>;
             };
 
     template<std::size_t Bits>
@@ -79,7 +81,8 @@ namespace {
     template<std::size_t Bits>
         requires SupportedColorsFromMask<Bits>
     std::array<std::uint8_t, Bits> actual_colors(MaskFor<Bits> mask) {
-        std::array<std::uint8_t, smallcanon::refine::avx512intrin::u8x64_t::size> lanes{};
+        using result_t = typename ColorsFromMask<Bits>::result_t;
+        std::array<std::uint8_t, result_t::size> lanes{};
         ColorsFromMask<Bits>::call(mask).store_unaligned(lanes.data());
 
         std::array<std::uint8_t, Bits> actual{};
@@ -121,7 +124,7 @@ namespace {
 #endif
 } // namespace
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
 TYPED_TEST(ColorsFromMaskTests, MatchesScalarReferenceForAllValidMasks) {
     constexpr auto Bits = TypeParam::kBits;
     using mask_t = MaskFor<Bits>;
@@ -173,6 +176,6 @@ TYPED_TEST(ColorsFromMaskHalfWidthTests, FirstHalfMatchesHalfWidthFunctionForRan
 }
 #else
 TEST(ColorsFromMaskTests, Avx512Unavailable) {
-    GTEST_SKIP() << "colors_from_mask helpers require XSIMD_WITH_AVX512F";
+    GTEST_SKIP() << "colors_from_mask helpers require SMALLCANON_WITH_AVX512";
 }
 #endif

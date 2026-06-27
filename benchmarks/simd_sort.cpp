@@ -69,7 +69,7 @@ namespace {
 
 #undef SMALLCANON_BENCHMARK_SIMD_SORT_TYPE
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
     namespace avx512 = smallcanon::simd::avx512defs;
 
     BENCHMARK_TEMPLATE(bm_simd_sort_batch, avx512::u8x16_t);

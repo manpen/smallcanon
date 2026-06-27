@@ -1,74 +1,49 @@
 #pragma once
 
 #include <smallcanon/simd/continuation_helper.hpp>
+#include <smallcanon/utility.hpp>
 #include <xsimd/xsimd.hpp>
 
 #define SMALLCANON_AVX512_ALIGNED alignas(64)
 
 namespace smallcanon::simd::avx512defs {
 #if XSIMD_WITH_AVX512F
+
+
+#define SMALLCANON_WITH_AVX512 1
     namespace xs = xsimd;
 
     using arch = xs::avx512vl;
     using arch128 = xs::avx512vl_128;
     using arch256 = xs::avx512vl_256;
 
-    using u64x8_t = xs::batch<uint64_t, arch>;
-    using u64x4_t = xs::batch<uint64_t, arch256>;
-    using u64x2_t = xs::batch<uint64_t, arch128>;
-
-    using u32x16_t = xs::batch<uint32_t, arch>;
-    using u32x8_t = xs::batch<uint32_t, arch256>;
-    using u32x4_t = xs::batch<uint32_t, arch128>;
-
-    using u16x32_t = xs::batch<uint16_t, arch>;
-    using u16x16_t = xs::batch<uint16_t, arch256>;
-    using u16x8_t = xs::batch<uint16_t, arch128>;
-
-    using u8x64_t = xs::batch<uint8_t, arch>;
-    using u8x32_t = xs::batch<uint8_t, arch256>;
-    using u8x16_t = xs::batch<uint8_t, arch128>;
-
-    template<uint8_t... Vs>
-    using u8xconst = xs::batch_constant<uint8_t, arch, Vs...>;
-    template<uint16_t... Vs>
-    using u16xconst = xs::batch_constant<uint16_t, arch, Vs...>;
-    template<uint32_t... Vs>
-    using u32xconst = xs::batch_constant<uint32_t, arch, Vs...>;
-    template<uint64_t... Vs>
-    using u64xconst = xs::batch_constant<uint64_t, arch, Vs...>;
-
-    template<uint8_t... Vs>
-        requires(sizeof...(Vs) > 1)
-    using u8cont = typename continuation::const_continuation<uint8_t, arch, Vs...>::value_t;
-    template<uint16_t... Vs>
-        requires(sizeof...(Vs) > 1)
-    using u16cont = typename continuation::const_continuation<uint16_t, arch, Vs...>::value_t;
-    template<uint32_t... Vs>
-        requires(sizeof...(Vs) > 1)
-    using u32cont = typename continuation::const_continuation<uint32_t, arch, Vs...>::value_t;
-    template<uint64_t... Vs>
-        requires(sizeof...(Vs) > 1)
-    using u64cont = typename continuation::const_continuation<uint64_t, arch, Vs...>::value_t;
-
-    static_assert(u8x64_t::size == 64);
-    static_assert(u16x32_t::size == 32);
-    static_assert(u32x16_t::size == 16);
-    static_assert(u64x8_t::size == 8);
-
-    inline u8x64_t popcnt(const u8x64_t v) noexcept {
-        return _mm512_popcnt_epi8(v);
-    }
-    inline u16x32_t popcnt(const u16x32_t v) noexcept {
-        return _mm512_popcnt_epi16(v);
-    }
-    inline u32x16_t popcnt(const u32x16_t v) noexcept {
-        return _mm512_popcnt_epi32(v);
-    }
-    inline u64x8_t popcnt(const u64x8_t v) noexcept {
-        return _mm512_popcnt_epi64(v);
+#define SMALLCANON_NEW_POPCNT(T, WIDTH, AWIDTH)                                                                        \
+    inline T popcnt(const T v) noexcept {                                                                              \
+        return _mm##AWIDTH##_popcnt_epi##WIDTH(v);                                                                     \
     }
 
+#define SMALLCANON_NEW_BATCH(WIDTH, NUM, AWIDTH, ARCH)                                                                 \
+    using u##WIDTH##x##NUM##_t = xs::batch<uint##WIDTH##_t, ARCH>;                                                     \
+    static_assert(u##WIDTH##x##NUM##_t::size == NUM);                                                                  \
+    template<uint##WIDTH##_t... Vs>                                                                                    \
+    using u##WIDTH##x##NUM##const = xs::batch_constant<uint##WIDTH##_t, ARCH, Vs...>;                                  \
+    template<uint##WIDTH##_t... Vs>                                                                                    \
+        requires(sizeof...(Vs) > 1)                                                                                    \
+    using u##WIDTH##x##NUM##cont = typename continuation::const_continuation<uint##WIDTH##_t, ARCH, Vs...>::value_t;   \
+    SMALLCANON_NEW_POPCNT(u##WIDTH##x##NUM##_t, WIDTH, AWIDTH)
+
+#define SMALLCANON_NEW_BATCHES(WIDTH, N512, N256, N128)                                                                \
+    SMALLCANON_NEW_BATCH(WIDTH, N512, 512, arch);                                                                      \
+    SMALLCANON_NEW_BATCH(WIDTH, N256, 256, arch256);                                                                   \
+    SMALLCANON_NEW_BATCH(WIDTH, N128, , arch128);
+
+    SMALLCANON_NEW_BATCHES(64, 8, 4, 2);
+    SMALLCANON_NEW_BATCHES(32, 16, 8, 4);
+    SMALLCANON_NEW_BATCHES(16, 32, 16, 8);
+    SMALLCANON_NEW_BATCHES(8, 64, 32, 16);
+
+#undef SMALLCANON_NEW_BATCHES
+#undef SMALLCANON_NEW_BATCH
 
     SMALLCANON_ALWAYS_INLINE u32x16_t hash_fmix32(u32x16_t h) {
         h ^= h >> 16;
@@ -79,6 +54,7 @@ namespace smallcanon::simd::avx512defs {
 
         return h;
     }
-
+#else
+#define SMALLCANON_WITH_AVX512 0
 #endif
 } // namespace smallcanon::simd::avx512defs

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <xsimd/xsimd.hpp>
+#include <smallcanon/simd/avx512defs.hpp>
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
 
 #include <smallcanon/coloring.hpp>
-#include <smallcanon/simd/avx512defs.hpp>
+#include <xsimd/xsimd.hpp>
 
 namespace smallcanon::refine::avx512intrin {
     using namespace smallcanon::simd::avx512defs;

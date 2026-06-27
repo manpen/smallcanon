@@ -19,7 +19,7 @@ namespace {
 
     // TODO: Add uint8_t!!
     using SimdSortTypes = testing::Types<
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
             // AVX512 (to ensure architecture is properly handled)
             SimdSortTestCases<32, uint16_t, true, xsimd::avx512f>, //
             SimdSortTestCases<16, uint32_t, true, xsimd::avx512f>, //

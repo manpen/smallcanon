@@ -56,7 +56,7 @@ namespace {
     template<typename T>
     class PrefixTests : public testing::Test {};
     using PrefixTypes = testing::Types<
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
             PrefixCase<std::uint8_t, xsimd::avx512f>, //
             PrefixCase<std::uint16_t, xsimd::avx512f>, //
             PrefixCase<std::uint32_t, xsimd::avx512f>, //

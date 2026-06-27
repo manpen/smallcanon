@@ -26,7 +26,7 @@ namespace {
         }
     };
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
     struct RefinementAVX512Intrinsics {
         [[maybe_unused]]
         static constexpr std::string_view name = "avx512intrin";
@@ -66,7 +66,7 @@ namespace {
     };
 
     using RefinementTestTypes = testing::Types<
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
             RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix8>,
             RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix16>,
 #endif

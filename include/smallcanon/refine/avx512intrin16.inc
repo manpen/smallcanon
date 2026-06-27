@@ -4,7 +4,7 @@
 
 #include <xsimd/xsimd.hpp>
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
 
 #include <smallcanon/adj_matrix.hpp>
 #include <smallcanon/coloring.hpp>
@@ -23,7 +23,7 @@ namespace smallcanon::refine::avx512intrin {
 
     private:
         const graph_t& external_graph;
-        const u16x32_t graph;
+        const u16x16_t graph;
         const u32x16_t degrees;
         const uint16_t enabled_eq_mask;
 
@@ -33,43 +33,41 @@ namespace smallcanon::refine::avx512intrin {
             }
         };
 
-        u8x64_t import_color(const coloring_t& external_coloring) const noexcept {
+        u8x16_t import_color(const coloring_t& external_coloring) const noexcept {
             static_assert(std::is_same_v<coloring_t::storage_t::scolor_t, uint8_t>);
-            constexpr auto mask = xs::make_batch_bool_constant<uint8_t, First16Lanes, arch>();
 
-            const auto colors = xs::load<uint8_t, arch>(external_coloring.colors().data(), mask, xs::unaligned_mode{});
-            const auto active = (u8cont<0, 1>().as_batch() < static_cast<uint8_t>(external_graph.num_nodes()));
+            const auto colors = u8x16_t::load_unaligned(external_coloring.colors().data());
+            const auto active = (u8x16cont<0, 1>().as_batch() < static_cast<uint8_t>(external_graph.num_nodes()));
 
-            return xs::select(active, colors, xs::broadcast<uint8_t, arch>(0xff));
+            return xs::select(active, colors, u8x16_t::broadcast(0xff));
         }
 
-        static u32x16_t zero_extend_low_u8_to_u32(const u8x64_t values) noexcept {
-            return {_mm512_cvtepu8_epi32(_mm512_castsi512_si128(values))};
+        static u32x16_t zero_extend_low_u8_to_u32(const u8x16_t values) noexcept {
+            return {_mm512_cvtepu8_epi32(values)};
         }
 
-        static u32x16_t zero_extend_low_u16_to_u32(const u16x32_t values) noexcept {
-            return {_mm512_cvtepu16_epi32(_mm512_castsi512_si256(values))};
+        static u32x16_t zero_extend_low_u16_to_u32(const u16x16_t values) noexcept {
+            return {_mm512_cvtepu16_epi32(values)};
         }
 
-        static u8x64_t truncate_u32_to_low_u8(const u32x16_t values) noexcept {
-            return {_mm512_zextsi128_si512(_mm512_cvtepi32_epi8(values))};
+        static u8x16_t truncate_u32_to_low_u8(const u32x16_t values) noexcept {
+            return {_mm512_cvtepi32_epi8(values)};
         }
 
-        static u8x64_t truncate_u16_to_low_u8(const u16x32_t values) noexcept {
-            return {_mm512_zextsi256_si512(_mm512_cvtepi16_epi8(values))};
+        static u8x16_t truncate_u16_to_low_u8(const u16x16_t values) noexcept {
+            return {_mm256_cvtepi16_epi8(values)};
         }
 
-        static void export_color(coloring_t& external_coloring, u8x64_t coloring, u8x64_t labels) {
+        static void export_color(coloring_t& external_coloring, u8x16_t coloring, u8x16_t labels) {
             static_assert(std::is_same_v<coloring_t::storage_t::scolor_t, uint8_t>);
-            constexpr auto mask = xs::make_batch_bool_constant<uint8_t, First16Lanes, arch>();
-            xs::store(external_coloring.colors().data(), coloring, mask, xs::unaligned_mode{});
-            xs::store(external_coloring.labels().data(), labels, mask, xs::unaligned_mode{});
+
+            coloring.store_unaligned(external_coloring.colors().data());
+            labels.store_unaligned(external_coloring.labels().data());
         }
 
-        static u16x32_t import_graph(const graph_t& external_graph) {
+        static u16x16_t import_graph(const graph_t& external_graph) {
             static_assert(std::is_same_v<graph_t::storage_t::word_t, uint16_t>);
-            constexpr auto mask = xs::make_batch_bool_constant<uint16_t, First16Lanes, arch>();
-            return xs::load(external_graph.buffer().data(), mask, xs::unaligned_mode{});
+            return u16x16_t::load_unaligned(external_graph.buffer().data());
         }
 
         static u16x32_t compute_prefixsum_u16x16(uint16_t inp) {
@@ -87,16 +85,16 @@ namespace smallcanon::refine::avx512intrin {
         struct HashFingerprint {
             SMALLCANON_AVX512_ALIGNED std::array<uint32_t, 16> scratch_hashes;
 
-            using color_table_c = u32cont<0xfce9cc97u, 0x0a405340u, 0xa387faf7u, 0x3ebb5d4cu, //
-                                          0xc7721bdau, 0xdf353671u, 0xd1dd1a87u, 0xa2ed0bf0u, //
-                                          0x9831f026u, 0xf054bdf6u, 0x4633a43cu, 0xdbceb161u, //
-                                          0x857ce90bu, 0x078e8307u, 0x5df3310fu, 0x635cda3eu //
-                                          >;
-            using degree_table_c = u32cont<0x562cde78u, 0xe467a339u, 0x7af4fd6fu, 0x84fb128au, //
-                                           0x92316d7au, 0x4805ef46u, 0x0fc1a065u, 0xd990e19du, //
-                                           0xe78a1112u, 0xe3cffe07u, 0x883c11b6u, 0x732de3aau, //
-                                           0x01424c6eu, 0xd523b8a6u, 0x797fdc9du, 0x1fb5f7d4u //
-                                           >;
+            using color_table_c = u32x16const<0xfce9cc97u, 0x0a405340u, 0xa387faf7u, 0x3ebb5d4cu, //
+                                              0xc7721bdau, 0xdf353671u, 0xd1dd1a87u, 0xa2ed0bf0u, //
+                                              0x9831f026u, 0xf054bdf6u, 0x4633a43cu, 0xdbceb161u, //
+                                              0x857ce90bu, 0x078e8307u, 0x5df3310fu, 0x635cda3eu //
+                                              >;
+            using degree_table_c = u32x16const<0x562cde78u, 0xe467a339u, 0x7af4fd6fu, 0x84fb128au, //
+                                               0x92316d7au, 0x4805ef46u, 0x0fc1a065u, 0xd990e19du, //
+                                               0xe78a1112u, 0xe3cffe07u, 0x883c11b6u, 0x732de3aau, //
+                                               0x01424c6eu, 0xd523b8a6u, 0x797fdc9du, 0x1fb5f7d4u //
+                                               >;
 
             const graph_t& external_graph;
             u32x16_t color_hashes;
@@ -119,7 +117,7 @@ namespace smallcanon::refine::avx512intrin {
                 color_hashes = new_colors;
 
                 return (new_colors & 0x0fff'fff0) // new colors
-                       | u32cont<0, 1>().as_batch() // ranks
+                       | u32x16cont<0, 1>().as_batch() // ranks
                        | (ranks << 28); // old colors
             }
         };
@@ -143,10 +141,10 @@ namespace smallcanon::refine::avx512intrin {
 
             uint16_t prev_neq_mask = 1; // impossible value
 
-            u32x16_t colors_32b = zero_extend_low_u8_to_u32(import_color(external_coloring));
-            u8x64_t colors_8b;
+            u8x16_t colors_8b = import_color(external_coloring);
+            u32x16_t colors_32b = zero_extend_low_u8_to_u32(colors_8b);
 
-            u8x64_t labels_in_part_order;
+            u8x16_t labels_in_part_order;
 
             auto hasher = HashFingerprint(external_graph, degrees, colors_32b);
 
@@ -155,7 +153,7 @@ namespace smallcanon::refine::avx512intrin {
                 fingerprints = simd::sort::sort_details::sort_single_batch<16, uint32_t, true>(fingerprints);
 
                 const auto fps = (fingerprints >> 4);
-                const auto fps_shifted = xs::swizzle(fps, u32cont<0, 0, 1>{});
+                const auto fps_shifted = xs::swizzle(fps, u32x16cont<0, 0, 1>{});
 
                 const auto neq_mask = static_cast<uint16_t>((fps != fps_shifted).mask() & enabled_eq_mask);
                 assert((neq_mask & 1) == 0);
@@ -171,8 +169,7 @@ namespace smallcanon::refine::avx512intrin {
                 {
                     auto refined_colors = colors_from_mask16(neq_mask);
                     refined_colors |= (labels_in_part_order << 4);
-                    refined_colors =
-                            simd::sort::sort_details::sort_single_batch<16, uint8_t, true, arch>(refined_colors);
+                    refined_colors = simd::sort::sort_details::sort_single_batch<16>(refined_colors);
                     colors_8b = refined_colors & 0xf;
                 }
 

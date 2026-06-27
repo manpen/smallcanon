@@ -80,7 +80,7 @@ void bm_canon(benchmark::State& state) {
     }
 }
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
 template<typename G>
 void bm_canon_avx512(benchmark::State& state) {
     static auto instances = load_smallcanon_instances<G>();

@@ -4,7 +4,7 @@
 
 #include <xsimd/xsimd.hpp>
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
 
 #include <smallcanon/simd/avx512defs.hpp>
 #include <smallcanon/simd/prefix.hpp>
@@ -52,11 +52,11 @@ namespace smallcanon::refine::avx512intrin {
     /// The mask uses bit i to indicate that rank i starts a new color block. The first 16 byte lanes of the
     /// return value hold the most recent block-start rank for each rank; higher byte lanes are unspecified
     /// for this helper's callers. Color ids are block start ranks, matching colors_from_mask8().
-    static u8x64_t colors_from_mask16(const uint16_t neq_mask) noexcept {
-        constexpr auto node_ids = u8cont<0, 1>();
-        const auto select_mask = xs::batch_bool<uint8_t, arch>::from_mask(neq_mask);
-        const auto new_start = xs::select(select_mask, node_ids.as_batch(), xs::broadcast<uint8_t, arch>(0));
-        return simd::incl_prefix_max<uint8_t, arch, 16>(new_start);
+    static u8x16_t colors_from_mask16(const uint16_t neq_mask) noexcept {
+        constexpr auto node_ids = u8x16cont<0, 1>();
+        const auto select_mask = xs::batch_bool<uint8_t, arch128>::from_mask(neq_mask);
+        const auto new_start = xs::select(select_mask, node_ids.as_batch(), xs::broadcast<uint8_t, arch128>(0));
+        return simd::incl_prefix_max<uint8_t, arch128, 16>(new_start);
     }
 
 } // namespace smallcanon::refine::avx512intrin

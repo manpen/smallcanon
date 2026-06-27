@@ -36,7 +36,7 @@ namespace {
     };
 
     using CanonTypes = testing::Types<
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
             CanonCase<smallcanon::AdjMatrix8, smallcanon::refine::avx512intrin::AVX512<smallcanon::AdjMatrix8>>,
             CanonCase<smallcanon::AdjMatrix16, smallcanon::refine::avx512intrin::AVX512<smallcanon::AdjMatrix16>>,
 #endif
