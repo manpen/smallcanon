@@ -80,7 +80,7 @@ namespace smallcanon::refine::avx512intrin {
             };
 
             const auto bitmask = xs::make_batch_constant<uint16_t, PrefixSumMasks, arch>().as_batch();
-            const auto masked = xs::broadcast(inp) & bitmask;
+            const auto masked = xs::broadcast<uint16_t, arch>(inp) & bitmask;
             return popcnt(masked);
         }
 
@@ -140,7 +140,6 @@ namespace smallcanon::refine::avx512intrin {
 
         void refine_impl(coloring_t& external_coloring) noexcept {
             const auto n = external_graph.num_nodes();
-
 
             uint16_t prev_neq_mask = 1; // impossible value
 

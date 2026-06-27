@@ -39,12 +39,12 @@ namespace smallcanon::refine::avx512intrin {
 
             // this should become a simple load ... but this version should be more portable.
             uint64_t single_graph = read_le_u64(graph.buffer().data());
-            const auto rows = (xs::broadcast(single_graph) >> u64cont<0, 8>()) & 0xff;
+            const auto rows = (xs::broadcast<uint64_t, arch>(single_graph) >> u64cont<0, 8>()) & 0xff;
             return rows * 0x0101010101010101;
         }
 
         static uint64_t compute_color_mask_vec(uint64_t x) {
-            u8x64_t colors = u8x64_t(xs::broadcast(x));
+            u8x64_t colors = u8x64_t(xs::broadcast<uint64_t, arch>(x));
             constexpr uint64_t f = 0x0101010101010101;
             return (colors == u8x64_t(u64cont<0, f>().as_batch())).mask();
         }
@@ -63,7 +63,8 @@ namespace smallcanon::refine::avx512intrin {
             const auto with_node_ids = color_counts32 | u64cont<0, 1>();
 
             const u64x8_t colors_at_msb =
-                    (xs::broadcast(color_uint64 | disabled_colors) << u64cont<60, 52>()) & 0xf000000000000000;
+                    (xs::broadcast<uint64_t, arch>(color_uint64 | disabled_colors) << u64cont<60, 52>()) &
+                    0xf000000000000000;
 
             return with_node_ids | colors_at_msb;
         }

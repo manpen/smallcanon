@@ -26,7 +26,8 @@ set(XSIMD_SKIP_INSTALL ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
         xsimd
         GIT_REPOSITORY https://github.com/xtensor-stack/xsimd.git
-        GIT_TAG 14.2.0
+        #GIT_TAG 14.2.0
+        GIT_BRANCH master
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(xsimd)

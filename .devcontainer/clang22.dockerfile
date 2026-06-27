@@ -20,6 +20,11 @@ RUN apt-get update \
        ninja-build \
        libicu76 \
        libicu-dev \
+       bubblewrap \
+       linux-perf \
+       binutils \
+       elfutils \
+       procps \
     && mkdir -p /etc/apt/keyrings \
     && wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
        | gpg --dearmor > /etc/apt/keyrings/llvm-snapshot.gpg \

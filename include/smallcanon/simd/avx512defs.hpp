@@ -9,11 +9,25 @@ namespace smallcanon::simd::avx512defs {
 #if XSIMD_WITH_AVX512F
     namespace xs = xsimd;
 
-    using arch = xs::best_arch;
+    using arch = xs::avx512vl;
+    using arch128 = xs::avx512vl_128;
+    using arch256 = xs::avx512vl_256;
+
     using u64x8_t = xs::batch<uint64_t, arch>;
+    using u64x4_t = xs::batch<uint64_t, arch256>;
+    using u64x2_t = xs::batch<uint64_t, arch128>;
+
     using u32x16_t = xs::batch<uint32_t, arch>;
+    using u32x8_t = xs::batch<uint32_t, arch256>;
+    using u32x4_t = xs::batch<uint32_t, arch128>;
+
     using u16x32_t = xs::batch<uint16_t, arch>;
+    using u16x16_t = xs::batch<uint16_t, arch256>;
+    using u16x8_t = xs::batch<uint16_t, arch128>;
+
     using u8x64_t = xs::batch<uint8_t, arch>;
+    using u8x32_t = xs::batch<uint8_t, arch256>;
+    using u8x16_t = xs::batch<uint8_t, arch128>;
 
     template<uint8_t... Vs>
     using u8xconst = xs::batch_constant<uint8_t, arch, Vs...>;

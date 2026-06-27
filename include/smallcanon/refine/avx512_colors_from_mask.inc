@@ -44,7 +44,7 @@ namespace smallcanon::refine::avx512intrin {
     /// numbers.
     static u8x64_t colors_from_mask8(uint8_t x) noexcept {
         constexpr auto table = colors_from_mask8_lookup();
-        return u8x64_t(xs::broadcast(table[x / 2]));
+        return u8x64_t(xs::broadcast<uint64_t, arch>(table[x / 2]));
     }
 
     /// Converts a 16-rank new-color mask into per-rank color ids.
@@ -55,7 +55,7 @@ namespace smallcanon::refine::avx512intrin {
     static u8x64_t colors_from_mask16(const uint16_t neq_mask) noexcept {
         constexpr auto node_ids = u8cont<0, 1>();
         const auto select_mask = xs::batch_bool<uint8_t, arch>::from_mask(neq_mask);
-        const auto new_start = xs::select(select_mask, node_ids.as_batch(), xs::broadcast<uint8_t>(0));
+        const auto new_start = xs::select(select_mask, node_ids.as_batch(), xs::broadcast<uint8_t, arch>(0));
         return simd::incl_prefix_max<uint8_t, arch, 16>(new_start);
     }
 
