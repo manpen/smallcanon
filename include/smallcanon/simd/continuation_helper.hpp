@@ -1,5 +1,7 @@
 #pragma once
 
+#include <xsimd/xsimd.hpp>
+
 namespace smallcanon::simd::continuation {
     namespace details {
         template<typename T, T...>

@@ -39,7 +39,7 @@ namespace smallcanon::refine::avx512intrin {
 
             // this should become a simple load ... but this version should be more portable.
             uint64_t single_graph = read_le_u64(graph.buffer().data());
-            const auto rows = (xs::broadcast<uint64_t, arch>(single_graph) >> u64x8cont<0, 8>()) & 0xff;
+            const auto rows = (u64x8_t::broadcast(single_graph) >> u64x8cont<0, 8>()) & 0xff;
             return rows * 0x0101010101010101;
         }
 
@@ -49,24 +49,32 @@ namespace smallcanon::refine::avx512intrin {
             return (colors == u8x64_t(u64x8cont<0, f>().as_batch())).mask();
         }
 
+        SMALLCANON_ALWAYS_INLINE
+        static u64x8_t pack_low3_from_bytes(u64x8_t x) noexcept {
+            x = (x | (x >> 5)) & 0x003f003f003f003full;
+            x = (x | (x >> 10)) & 0x00000fff00000fffull;
+            x = (x | (x >> 20)) & 0x0000000000ffffffull;
+
+            return x;
+        }
+
+        SMALLCANON_ALWAYS_INLINE
         static u64x8_t compute_fingerprints(const u64x8_t vgraph, const uint64_t color_uint64,
-                                            const uint64_t disabled_colors) {
+                                            const uint64_t disabled_colors) noexcept {
 
             uint64_t color_mask = compute_color_mask_vec(color_uint64);
 
             const u64x8_t masked = vgraph & color_mask;
             const u64x8_t color_counts = u64x8_t(popcnt(u8x64_t(masked)));
-            const auto color_counts32 = //
-                    ((color_counts & 0x00000000FFFFFFFF) << 4) | //
-                    ((color_counts & 0xFFFFFFFF00000000) >> 25);
+            const auto color_counts32 = pack_low3_from_bytes(color_counts) << 3;
 
             const auto with_node_ids = color_counts32 | u64x8cont<0, 1>();
 
-            const u64x8_t colors_at_msb =
-                    (xs::broadcast<uint64_t, arch>(color_uint64 | disabled_colors) << u64x8cont<60, 52>()) &
-                    0xf000000000000000;
+            const u64x8_t colors_at_msb = ((u64x8_t::broadcast(color_uint64 | disabled_colors) << u64x8cont<60, 52>()) &
+                                           0xf000000000000000) >>
+                                          32;
 
-            return with_node_ids | colors_at_msb;
+            return (with_node_ids | colors_at_msb);
         }
 
 
@@ -103,15 +111,15 @@ namespace smallcanon::refine::avx512intrin {
                 const auto sorted_fingerprints = simd::sort::sort_details::sort_single_batch<8>(fingerprints);
 
                 // Split fingerprints into node ids and remainder
-                node_ids_by_rank = sorted_fingerprints & 0xf;
-                const auto fingerprints_wo_node_ids = sorted_fingerprints & 0xfffffffffffffff0;
+                node_ids_by_rank = (sorted_fingerprints & 0x7);
+                const auto fingerprints_wo_node_ids = sorted_fingerprints & ~0x7;
 
                 uint8_t new_color_mask;
                 {
                     // We compare each fingerprint to its predecessor (i.e. the element with next lower rank).
                     // We finally obtain an 8-bit integer (same_fingerprint_as_pred), where a one in the i-th bit
                     // encodes that a new color starts with the node of rank i.
-                    const u64x8_t shifted_fps = xs::swizzle(fingerprints_wo_node_ids, u64x8cont<0, 0, 1>{});
+                    const auto shifted_fps = xs::swizzle(fingerprints_wo_node_ids, u64x8cont<0, 0, 1>{});
                     new_color_mask =
                             static_cast<uint8_t>((fingerprints_wo_node_ids != shifted_fps).mask()) & enabled_eq_mask;
                     assert((new_color_mask & 1) == 0);

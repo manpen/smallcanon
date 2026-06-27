@@ -45,6 +45,15 @@ namespace smallcanon::simd::avx512defs {
 #undef SMALLCANON_NEW_BATCHES
 #undef SMALLCANON_NEW_BATCH
 
+    static u32x8_t shrink_to_u32(u64x8_t d) noexcept {
+        return _mm512_cvtepi64_epi32(d);
+    }
+
+    static u64x8_t widen_to_u64(u32x8_t d) noexcept {
+        return _mm512_cvtepu32_epi64(d);
+    }
+
+
     SMALLCANON_ALWAYS_INLINE u32x16_t hash_fmix32(u32x16_t h) {
         h ^= h >> 16;
         h *= 0x85ebca6b;
