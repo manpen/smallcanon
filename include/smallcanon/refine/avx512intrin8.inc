@@ -43,8 +43,9 @@ namespace smallcanon::refine::avx512intrin {
             return rows * 0x0101010101010101;
         }
 
+        SMALLCANON_ALWAYS_INLINE
         static uint64_t compute_color_mask_vec(uint64_t x) {
-            u8x64_t colors = u8x64_t(xs::broadcast<uint64_t, arch>(x));
+            auto colors = u8x64_t(u64x8_t::broadcast(x));
             constexpr uint64_t f = 0x0101010101010101;
             return (colors == u8x64_t(u64x8cont<0, f>().as_batch())).mask();
         }
@@ -59,7 +60,7 @@ namespace smallcanon::refine::avx512intrin {
         }
 
         SMALLCANON_ALWAYS_INLINE
-        static u64x8_t compute_fingerprints(const u64x8_t vgraph, const uint64_t color_uint64,
+        static u32x8_t compute_fingerprints(const u64x8_t vgraph, const uint64_t color_uint64,
                                             const uint64_t disabled_colors) noexcept {
 
             uint64_t color_mask = compute_color_mask_vec(color_uint64);
@@ -74,7 +75,7 @@ namespace smallcanon::refine::avx512intrin {
                                            0xf000000000000000) >>
                                           32;
 
-            return (with_node_ids | colors_at_msb);
+            return shrink_to_u32(with_node_ids | colors_at_msb);
         }
 
 
@@ -111,7 +112,7 @@ namespace smallcanon::refine::avx512intrin {
                 const auto sorted_fingerprints = simd::sort::sort_details::sort_single_batch<8>(fingerprints);
 
                 // Split fingerprints into node ids and remainder
-                node_ids_by_rank = (sorted_fingerprints & 0x7);
+                node_ids_by_rank = widen_to_u64(sorted_fingerprints & 0x7);
                 const auto fingerprints_wo_node_ids = sorted_fingerprints & ~0x7;
 
                 uint8_t new_color_mask;
@@ -119,7 +120,7 @@ namespace smallcanon::refine::avx512intrin {
                     // We compare each fingerprint to its predecessor (i.e. the element with next lower rank).
                     // We finally obtain an 8-bit integer (same_fingerprint_as_pred), where a one in the i-th bit
                     // encodes that a new color starts with the node of rank i.
-                    const auto shifted_fps = xs::swizzle(fingerprints_wo_node_ids, u64x8cont<0, 0, 1>{});
+                    const auto shifted_fps = xs::swizzle(fingerprints_wo_node_ids, u32x8cont<0, 0, 1>{});
                     new_color_mask =
                             static_cast<uint8_t>((fingerprints_wo_node_ids != shifted_fps).mask()) & enabled_eq_mask;
                     assert((new_color_mask & 1) == 0);

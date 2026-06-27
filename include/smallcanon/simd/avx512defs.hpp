@@ -13,7 +13,7 @@ namespace smallcanon::simd::avx512defs {
 #define SMALLCANON_WITH_AVX512 1
     namespace xs = xsimd;
 
-    using arch = xs::avx512vl;
+    using arch = xs::best_arch;
     using arch128 = xs::avx512vl_128;
     using arch256 = xs::avx512vl_256;
 
