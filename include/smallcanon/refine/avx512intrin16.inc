@@ -27,17 +27,6 @@ namespace smallcanon::refine::avx512intrin {
         const u32x16_t degrees;
         const uint16_t enabled_eq_mask;
 
-        using color_table_c = u32cont<0xfce9cc97u, 0x0a405340u, 0xa387faf7u, 0x3ebb5d4cu, //
-                                      0xc7721bdau, 0xdf353671u, 0xd1dd1a87u, 0xa2ed0bf0u, //
-                                      0x9831f026u, 0xf054bdf6u, 0x4633a43cu, 0xdbceb161u, //
-                                      0x857ce90bu, 0x078e8307u, 0x5df3310fu, 0x635cda3eu //
-                                      >;
-        using degree_table_c = u32cont<0x562cde78u, 0xe467a339u, 0x7af4fd6fu, 0x84fb128au, //
-                                       0x92316d7au, 0x4805ef46u, 0x0fc1a065u, 0xd990e19du, //
-                                       0xe78a1112u, 0xe3cffe07u, 0x883c11b6u, 0x732de3aau, //
-                                       0x01424c6eu, 0xd523b8a6u, 0x797fdc9du, 0x1fb5f7d4u //
-                                       >;
-
         struct First16Lanes {
             static constexpr bool get(unsigned i, unsigned) {
                 return i < 16;
@@ -95,85 +84,108 @@ namespace smallcanon::refine::avx512intrin {
             return popcnt(masked);
         }
 
-    public:
-        explicit AVX512(const graph_t& egraph) :
-            external_graph(egraph), graph(import_graph(egraph)),
-            degrees(xs::swizzle(degree_table_c().as_batch(), zero_extend_low_u16_to_u32(popcnt(graph)))),
-            enabled_eq_mask(static_cast<uint16_t>((2 << external_graph.num_nodes()) - 1)) {}
+        struct HashFingerprint {
+            SMALLCANON_AVX512_ALIGNED std::array<uint32_t, 16> scratch_hashes;
 
-        void refine_starting_at(coloring_t& external_coloring, [[maybe_unused]] node_t start) const noexcept {
-            refine_impl(external_coloring, 0);
-        }
+            using color_table_c = u32cont<0xfce9cc97u, 0x0a405340u, 0xa387faf7u, 0x3ebb5d4cu, //
+                                          0xc7721bdau, 0xdf353671u, 0xd1dd1a87u, 0xa2ed0bf0u, //
+                                          0x9831f026u, 0xf054bdf6u, 0x4633a43cu, 0xdbceb161u, //
+                                          0x857ce90bu, 0x078e8307u, 0x5df3310fu, 0x635cda3eu //
+                                          >;
+            using degree_table_c = u32cont<0x562cde78u, 0xe467a339u, 0x7af4fd6fu, 0x84fb128au, //
+                                           0x92316d7au, 0x4805ef46u, 0x0fc1a065u, 0xd990e19du, //
+                                           0xe78a1112u, 0xe3cffe07u, 0x883c11b6u, 0x732de3aau, //
+                                           0x01424c6eu, 0xd523b8a6u, 0x797fdc9du, 0x1fb5f7d4u //
+                                           >;
 
-        void refine(coloring_t& external_coloring) const noexcept {
-            refine_impl(external_coloring, 8);
-        }
+            const graph_t& external_graph;
+            u32x16_t color_hashes;
 
-        void refine_impl(coloring_t& external_coloring, node_t min_rounds) const noexcept {
-            auto ranks = zero_extend_low_u8_to_u32(import_color(external_coloring));
+            HashFingerprint(const graph_t& egraph, u32x16_t degrees, u32x16_t colors) :
+                external_graph(egraph), color_hashes(xs::swizzle(color_table_c().as_batch(), colors) //
+                                                     ^ xs::swizzle(degree_table_c().as_batch(), degrees)) {}
 
-            const auto org_hash = xs::swizzle(color_table_c().as_batch(), ranks) ^ degrees;
-
-            auto colors = org_hash;
-            const auto n = external_graph.num_nodes();
-
-
-            u32x16_t fingerprints;
-            uint16_t neq_mask;
-
-            uint16_t prev_neq_mask = 1; // impossible value
-
-            u8x64_t labels;
-            u8x64_t refined_colors;
-
-
-            SMALLCANON_AVX512_ALIGNED
-            std::array<uint32_t, 16> hashes;
-            for ([[maybe_unused]] node_t round = 0; true; round++) {
-                xs::store_aligned(hashes.data(), colors);
-                auto new_colors = hash_fmix32(colors);
+            u32x16_t fingerprints(u32x16_t ranks, node_t n) noexcept {
+                xs::store_aligned(scratch_hashes.data(), color_hashes);
+                auto new_colors = hash_fmix32(color_hashes);
 
                 for (node_t node = 0; node < n; node++) {
                     const uint16_t mask = external_graph.row_upto_capacity(node)[0];
                     new_colors = xs::select(xs::batch_bool<uint32_t, arch>::from_mask(mask), //
-                                            new_colors + hashes[node], //
+                                            new_colors + scratch_hashes[node], //
                                             new_colors);
                 }
 
-                colors = new_colors;
+                color_hashes = new_colors;
 
-                fingerprints = (colors & 0x0fff'fff0) | u32cont<0, 1>().as_batch() | (ranks << 28);
+                return (new_colors & 0x0fff'fff0) // new colors
+                       | u32cont<0, 1>().as_batch() // ranks
+                       | (ranks << 28); // old colors
+            }
+        };
+
+
+    public:
+        explicit AVX512(const graph_t& egraph) :
+            external_graph(egraph), graph(import_graph(egraph)), degrees(zero_extend_low_u16_to_u32(popcnt(graph))),
+            enabled_eq_mask(static_cast<uint16_t>((2 << external_graph.num_nodes()) - 1)) {}
+
+        void refine_starting_at(coloring_t& external_coloring, [[maybe_unused]] node_t start) noexcept {
+            refine_impl(external_coloring);
+        }
+
+        void refine(coloring_t& external_coloring) noexcept {
+            refine_impl(external_coloring);
+        }
+
+        void refine_impl(coloring_t& external_coloring) noexcept {
+            const auto n = external_graph.num_nodes();
+
+
+            uint16_t prev_neq_mask = 1; // impossible value
+
+            u32x16_t colors_32b = zero_extend_low_u8_to_u32(import_color(external_coloring));
+            u8x64_t colors_8b;
+
+            u8x64_t labels_in_part_order;
+
+            auto hasher = HashFingerprint(external_graph, degrees, colors_32b);
+
+            for ([[maybe_unused]] node_t round = 0; true; round++) {
+                auto fingerprints = hasher.fingerprints(colors_32b, n);
                 fingerprints = simd::sort::sort_details::sort_single_batch<16, uint32_t, true>(fingerprints);
 
                 const auto fps = (fingerprints >> 4);
                 const auto fps_shifted = xs::swizzle(fps, u32cont<0, 0, 1>{});
 
-                neq_mask = static_cast<uint16_t>((fps != fps_shifted).mask() & enabled_eq_mask);
+                const auto neq_mask = static_cast<uint16_t>((fps != fps_shifted).mask() & enabled_eq_mask);
                 assert((neq_mask & 1) == 0);
 
+                // solution has converged
                 if (neq_mask == prev_neq_mask) {
                     break;
                 }
                 prev_neq_mask = neq_mask;
 
-                labels = truncate_u32_to_low_u8(fingerprints & 0xf);
+                labels_in_part_order = truncate_u32_to_low_u8(fingerprints & 0xf);
 
-                refined_colors = colors_from_mask16(neq_mask);
-                refined_colors |= (labels << 4);
-                refined_colors = simd::sort::sort_details::sort_single_batch<16, uint8_t, true, arch>(refined_colors);
-                refined_colors &= 0xf;
+                {
+                    auto refined_colors = colors_from_mask16(neq_mask);
+                    refined_colors |= (labels_in_part_order << 4);
+                    refined_colors =
+                            simd::sort::sort_details::sort_single_batch<16, uint8_t, true, arch>(refined_colors);
+                    colors_8b = refined_colors & 0xf;
+                }
 
-
+                // solution is discrete
                 if ((neq_mask | 1) == enabled_eq_mask) {
                     break;
                 }
 
-
-                ranks = zero_extend_low_u8_to_u32(refined_colors);
+                colors_32b = zero_extend_low_u8_to_u32(colors_8b);
             }
 
-
-            export_color(external_coloring, refined_colors, labels);
+            export_color(external_coloring, colors_8b, labels_in_part_order);
         }
     };
 
