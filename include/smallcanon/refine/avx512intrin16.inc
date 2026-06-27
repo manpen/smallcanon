@@ -129,13 +129,15 @@ namespace smallcanon::refine::avx512intrin {
 
             SMALLCANON_AVX512_ALIGNED
             std::array<uint32_t, 16> hashes;
-            for (node_t round = 0; true; round++) {
+            for ([[maybe_unused]] node_t round = 0; true; round++) {
                 xs::store_aligned(hashes.data(), colors);
                 auto new_colors = hash_fmix32(colors);
 
                 for (node_t node = 0; node < n; node++) {
                     const uint16_t mask = external_graph.row_upto_capacity(node)[0];
-                    new_colors = xs::select(xs::batch_bool<uint32_t, arch>::from_mask(mask), new_colors + hashes[node], new_colors);
+                    new_colors = xs::select(xs::batch_bool<uint32_t, arch>::from_mask(mask), //
+                                            new_colors + hashes[node], //
+                                            new_colors);
                 }
 
                 colors = new_colors;
@@ -149,27 +151,23 @@ namespace smallcanon::refine::avx512intrin {
                 neq_mask = static_cast<uint16_t>((fps != fps_shifted).mask() & enabled_eq_mask);
                 assert((neq_mask & 1) == 0);
 
-                if ((neq_mask | 1) == enabled_eq_mask) {
-                    // std::cout << 'd' << round << std::endl;
-                    //  discrete
-                    break;
-                }
-
                 if (neq_mask == prev_neq_mask) {
-                    // std::cout << 'c' << round << std::endl;
-                    //  converged
                     break;
                 }
-
                 prev_neq_mask = neq_mask;
 
-
                 labels = truncate_u32_to_low_u8(fingerprints & 0xf);
-                // refined_colors = truncate_u16_to_low_u8(compute_prefixsum_u16x16(neq_mask));
+
                 refined_colors = colors_from_mask16(neq_mask);
                 refined_colors |= (labels << 4);
                 refined_colors = simd::sort::sort_details::sort_single_batch<16, uint8_t, true, arch>(refined_colors);
                 refined_colors &= 0xf;
+
+
+                if ((neq_mask | 1) == enabled_eq_mask) {
+                    break;
+                }
+
 
                 ranks = zero_extend_low_u8_to_u32(refined_colors);
             }
