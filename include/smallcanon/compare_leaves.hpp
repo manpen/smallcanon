@@ -34,7 +34,6 @@ namespace smallcanon {
             }
 
 
-
             const node_t n = graph.num_nodes();
 
             // Lexicographically compare the relabeled adjacency matrices

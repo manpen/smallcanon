@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <compare>
 #include <span>
 #include <vector>
 
@@ -104,6 +105,42 @@ TYPED_TEST(AdjMatrixTests, ReportsCapacity) {
 TYPED_TEST(AdjMatrixTests, ReportsNumNodes) {
     const auto matrix = TypeParam::make_matrix();
     EXPECT_GE(matrix.num_nodes(), TypeParam::kNumNodes);
+}
+
+TYPED_TEST(AdjMatrixTests, ComparesEqualBuffersAsEqual) {
+    const auto lhs = TypeParam::make_matrix();
+    const auto rhs = TypeParam::make_matrix();
+
+    EXPECT_EQ(lhs <=> rhs, std::strong_ordering::equal);
+    EXPECT_EQ(lhs, rhs);
+    EXPECT_LE(lhs, rhs);
+    EXPECT_GE(lhs, rhs);
+}
+
+TYPED_TEST(AdjMatrixTests, ComparesBuffersLexicographically) {
+    auto lhs = TypeParam::make_matrix();
+    auto rhs = TypeParam::make_matrix();
+
+    lhs.buffer()[0] = static_cast<typename TypeParam::matrix_t::word_t>(1);
+    rhs.buffer()[0] = static_cast<typename TypeParam::matrix_t::word_t>(2);
+
+    EXPECT_EQ(lhs <=> rhs, std::strong_ordering::less);
+    EXPECT_LT(lhs, rhs);
+    EXPECT_GT(rhs, lhs);
+    EXPECT_NE(lhs, rhs);
+}
+
+TYPED_TEST(AdjMatrixTests, ComparesWholeBufferLexicographically) {
+    auto lhs = TypeParam::make_matrix();
+    auto rhs = TypeParam::make_matrix();
+
+    lhs.buffer()[0] = static_cast<typename TypeParam::matrix_t::word_t>(1);
+    rhs.buffer()[0] = static_cast<typename TypeParam::matrix_t::word_t>(1);
+    lhs.buffer().back() = static_cast<typename TypeParam::matrix_t::word_t>(1);
+    rhs.buffer().back() = static_cast<typename TypeParam::matrix_t::word_t>(2);
+
+    EXPECT_EQ(lhs <=> rhs, std::strong_ordering::less);
+    EXPECT_LT(lhs, rhs);
 }
 
 TYPED_TEST(AdjMatrixTests, IterateNodes) {

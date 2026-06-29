@@ -4,6 +4,7 @@
 #include <array>
 #include <bit>
 #include <cassert>
+#include <compare>
 #include <concepts>
 #include <initializer_list>
 #include <memory>
@@ -45,6 +46,25 @@ namespace smallcanon {
             AdjMatrix copied(n_);
             std::ranges::copy(buffer().begin(), buffer().end(), copied.buffer().begin());
             return copied;
+        }
+
+        /// Lexicographical comparison of rows
+        [[nodiscard]] constexpr std::strong_ordering operator<=>(const AdjMatrix& other) const noexcept {
+            if (num_nodes() == other.num_nodes()) [[likely]] {
+                return std::lexicographical_compare_three_way(buffer().begin(), buffer().end(), other.buffer().begin(),
+                                                              other.buffer().end(), std::compare_three_way{});
+            }
+
+            if (num_nodes() < other.num_nodes()) {
+                return std::strong_ordering::less;
+            }
+
+            return std::strong_ordering::greater;
+        }
+
+        /// Lexicographical test equality of n and matrix
+        [[nodiscard]] constexpr bool operator==(const AdjMatrix& other) const noexcept {
+            return num_nodes() == other.num_nodes() && std::ranges::equal(buffer(), other.buffer());
         }
 
         /// Returns the number of nodes
