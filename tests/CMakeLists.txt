@@ -11,7 +11,7 @@ SET(SMALL_CANON_TESTS
         prefix
         refine
         simd_sort
-        transpose
+        reorder
 )
 
 function(add_smallcanon_test name)

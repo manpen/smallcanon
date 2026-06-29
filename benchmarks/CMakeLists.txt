@@ -16,8 +16,8 @@ target_compile_definitions(smallcanon_benchmark_canon
         SMALLCANON_PROJECT_ROOT="${PROJECT_SOURCE_DIR}"
 )
 
-add_executable(smallcanon_benchmark_transpose transpose.cpp)
-target_link_libraries(smallcanon_benchmark_transpose
+add_executable(smallcanon_benchmark_reorder reorder.cpp)
+target_link_libraries(smallcanon_benchmark_reorder
         PRIVATE
         smallcanon::smallcanon
         benchmark::benchmark_main

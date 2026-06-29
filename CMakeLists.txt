@@ -44,7 +44,7 @@ add_library(smallcanon INTERFACE
         include/smallcanon/parser.hpp
         include/smallcanon/permutation.hpp
         include/smallcanon/selector.hpp
-        include/smallcanon/transpose.hpp
+        include/smallcanon/reorder.hpp
         include/smallcanon/utility.hpp
 )
 add_library(smallcanon::smallcanon ALIAS smallcanon)

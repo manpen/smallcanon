@@ -6,7 +6,7 @@
 #include "smallcanon/adj_matrix.hpp"
 #include "smallcanon/coloring.hpp"
 #include "smallcanon/orbits.hpp"
-#include "smallcanon/transpose.hpp"
+#include "smallcanon/reorder.hpp"
 
 namespace smallcanon {
     namespace compare {

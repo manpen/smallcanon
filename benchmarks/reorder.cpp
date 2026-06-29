@@ -1,5 +1,5 @@
 #include <smallcanon/bitspan.hpp>
-#include <smallcanon/transpose.hpp>
+#include <smallcanon/reorder.hpp>
 
 #include <benchmark/benchmark.h>
 

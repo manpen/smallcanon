@@ -8,7 +8,7 @@
 namespace smallcanon {
 
     template<typename S>
-    auto transpose(const AdjMatrix<S>& g) {
+    inline auto transpose(const AdjMatrix<S>& g) {
         auto copied = AdjMatrix<S>(g.num_nodes());
         for (const auto u: g.nodes()) {
             const BitSpan row(g.row(u));
@@ -22,7 +22,7 @@ namespace smallcanon {
         return copied;
     }
 
-    static uint64_t transpose_uint64(uint64_t x) {
+    SMALLCANON_ALWAYS_INLINE static uint64_t transpose_uint64(uint64_t x) {
         uint64_t t;
         t = (x ^ (x >> 7)) & 0x00AA00AA00AA00AAULL;
         x = x ^ t ^ (t << 7);
@@ -34,7 +34,7 @@ namespace smallcanon {
     }
 
     template<>
-    auto transpose(const AdjMatrix8& matrix) {
+    inline auto transpose(const AdjMatrix8& matrix) {
         auto copied = matrix.copy();
         uint64_t x = read_le_u64(matrix.buffer().data());
 
@@ -46,7 +46,7 @@ namespace smallcanon {
 
     /// Reorders the graph according to the label order of col
     template<typename S>
-    auto reorder_graph(const AdjMatrix<S>& g, const typename MatchedColoring<AdjMatrix<S>>::coloring_t& col) {
+    inline auto reorder_graph(const AdjMatrix<S>& g, const typename MatchedColoring<AdjMatrix<S>>::coloring_t& col) {
         const auto labels = col.labels();
 
         auto copied = AdjMatrix<S>(g.num_nodes());
@@ -70,7 +70,7 @@ namespace smallcanon {
 
 
     template<>
-    auto reorder_graph(const AdjMatrix8& g, const Coloring8& col) {
+    inline auto reorder_graph(const AdjMatrix8& g, const Coloring8& col) {
         const auto labels = read_le_u64(col.labels().data());
         auto mat = read_le_u64(g.buffer().data());
 

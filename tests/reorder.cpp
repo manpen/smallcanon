@@ -1,5 +1,5 @@
 #include <smallcanon/bitspan.hpp>
-#include <smallcanon/transpose.hpp>
+#include <smallcanon/reorder.hpp>
 
 #include <gtest/gtest.h>
 
@@ -9,7 +9,7 @@
 
 namespace {
     template<typename Graph, smallcanon::node_t NumNodes>
-    struct TransposeCase {
+    struct ReorderCase {
         using graph_t = Graph;
         static constexpr smallcanon::node_t kNumNodes = NumNodes;
 
@@ -19,13 +19,13 @@ namespace {
     };
 
     template<typename T>
-    class TransposeTests : public testing::Test {};
+    class ReorderTests : public testing::Test {};
 
-    using TransposeTypes =
-            testing::Types<TransposeCase<smallcanon::AdjMatrix8, 8>, TransposeCase<smallcanon::AdjMatrix16, 16>,
-                           TransposeCase<smallcanon::AdjMatrix32, 32>, TransposeCase<smallcanon::AdjMatrix64, 64>,
-                           TransposeCase<smallcanon::AdjMatrixHeap, 65>>;
-    TYPED_TEST_SUITE(TransposeTests, TransposeTypes);
+    using ReorderTypes =
+            testing::Types<ReorderCase<smallcanon::AdjMatrix8, 8>, ReorderCase<smallcanon::AdjMatrix16, 16>,
+                           ReorderCase<smallcanon::AdjMatrix32, 32>, ReorderCase<smallcanon::AdjMatrix64, 64>,
+                           ReorderCase<smallcanon::AdjMatrixHeap, 65>>;
+    TYPED_TEST_SUITE(ReorderTests, ReorderTypes);
 
     template<typename Graph>
     void set_matrix_bit(Graph& graph, smallcanon::node_t u, smallcanon::node_t v) {
@@ -123,7 +123,7 @@ namespace {
     }
 } // namespace
 
-TYPED_TEST(TransposeTests, EmptyMatrixTransposesToEmptyMatrix) {
+TYPED_TEST(ReorderTests, EmptyMatrixTransposesToEmptyMatrix) {
     const auto graph = TypeParam::make_graph();
 
     const auto transposed = smallcanon::transpose(graph);
@@ -131,7 +131,7 @@ TYPED_TEST(TransposeTests, EmptyMatrixTransposesToEmptyMatrix) {
     expect_transpose_of(transposed, graph);
 }
 
-TYPED_TEST(TransposeTests, TransposesLogicalMatrixBits) {
+TYPED_TEST(ReorderTests, TransposesLogicalMatrixBits) {
     auto graph = TypeParam::make_graph();
     constexpr auto kLast = TypeParam::kNumNodes - 1;
 
@@ -148,7 +148,7 @@ TYPED_TEST(TransposeTests, TransposesLogicalMatrixBits) {
     expect_transpose_of(transposed, graph);
 }
 
-TYPED_TEST(TransposeTests, DoubleTransposeRestoresLogicalMatrixBits) {
+TYPED_TEST(ReorderTests, DoubleTransposeRestoresLogicalMatrixBits) {
     auto graph = TypeParam::make_graph();
     constexpr auto kLast = TypeParam::kNumNodes - 1;
 
@@ -164,7 +164,7 @@ TYPED_TEST(TransposeTests, DoubleTransposeRestoresLogicalMatrixBits) {
     expect_same_logical_matrix(restored, graph);
 }
 
-TYPED_TEST(TransposeTests, RandomMatricesTransposeAgainstBitOracle) {
+TYPED_TEST(ReorderTests, RandomMatricesTransposeAgainstBitOracle) {
     std::mt19937 rng(0x5A17C0DE);
 
     for (int iteration = 0; iteration < 32; ++iteration) {
@@ -179,7 +179,7 @@ TYPED_TEST(TransposeTests, RandomMatricesTransposeAgainstBitOracle) {
     }
 }
 
-TYPED_TEST(TransposeTests, ReorderGraphWithIdentityLabelsPreservesLogicalMatrixBits) {
+TYPED_TEST(ReorderTests, ReorderGraphWithIdentityLabelsPreservesLogicalMatrixBits) {
     auto graph = TypeParam::make_graph();
     constexpr auto kLast = TypeParam::kNumNodes - 1;
 
@@ -198,7 +198,7 @@ TYPED_TEST(TransposeTests, ReorderGraphWithIdentityLabelsPreservesLogicalMatrixB
     expect_same_logical_matrix(reordered, graph);
 }
 
-TYPED_TEST(TransposeTests, ReorderGraphUsesColoringLabelOrderForRowsAndColumns) {
+TYPED_TEST(ReorderTests, ReorderGraphUsesColoringLabelOrderForRowsAndColumns) {
     auto graph = TypeParam::make_graph();
     constexpr auto kLast = TypeParam::kNumNodes - 1;
 
@@ -217,7 +217,7 @@ TYPED_TEST(TransposeTests, ReorderGraphUsesColoringLabelOrderForRowsAndColumns) 
     expect_reorder_of(reordered, graph, labels);
 }
 
-TYPED_TEST(TransposeTests, RandomMatricesReorderAgainstBitOracle) {
+TYPED_TEST(ReorderTests, RandomMatricesReorderAgainstBitOracle) {
     std::mt19937 rng(0x7E57C0DE);
 
     for (int iteration = 0; iteration < 32; ++iteration) {
