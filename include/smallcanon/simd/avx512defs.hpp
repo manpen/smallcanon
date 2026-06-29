@@ -72,6 +72,10 @@ namespace smallcanon::simd::avx512defs {
         return {_mm512_cvtepu16_epi32(values)};
     }
 
+    SMALLCANON_ALWAYS_INLINE static u16x16_t widen_to_u16(const u8x16_t values) noexcept {
+        return {_mm256_cvtepu8_epi16(values)};
+    }
+
     SMALLCANON_ALWAYS_INLINE static u8x16_t shrink_to_u8(const u64x8_t values) noexcept {
         return {_mm512_cvtepi64_epi8(values)};
     }
