@@ -18,7 +18,7 @@ namespace smallcanon::refine::avx512intrin {
     /// uint64_t contains the highest set mask bit at or before i; equivalently, each rank receives the
     /// start rank of its current block.
     /// Example: mask 0b00101000 produces bytes [0, 0, 0, 3, 3, 5, 5, 5].
-    consteval static std::array<uint64_t, 128> colors_from_mask8_lookup() {
+    consteval static auto colors_from_mask8_lookup() {
         std::array<uint64_t, 128> result{};
         for (uint64_t idx = 0; idx < 256; idx += 2) {
             uint64_t popcnt = 0;
@@ -27,7 +27,7 @@ namespace smallcanon::refine::avx512intrin {
                 if (!(pattern & 1))
                     continue;
                 for (uint j = i; j < 8; ++j) {
-                    popcnt &= ~(uint64_t(0xff) << (8 * j));
+                    popcnt &= ~(uint64_t(0x7) << (8 * j));
                     popcnt |= uint64_t(i) << 8 * j;
                 }
             }
@@ -42,9 +42,16 @@ namespace smallcanon::refine::avx512intrin {
     /// identical packed u8x8 color vectors, one in each 64-bit lane of the u8x64 result, so callers can
     /// reinterpret it as either bytes or uint64_t lanes. Color ids are block start ranks, not dense color
     /// numbers.
-    static u8x64_t colors_from_mask8(uint8_t x) noexcept {
+    SMALLCANON_ALWAYS_INLINE
+    static constexpr uint64_t colors_from_mask8_scalar(uint8_t x) noexcept {
         constexpr auto table = colors_from_mask8_lookup();
-        return u8x64_t(xs::broadcast<uint64_t, arch>(table[x / 2]));
+        assert((x & 1) == 0);
+        return table[x / 2];
+    }
+
+    [[maybe_unused]]
+    static u8x64_t colors_from_mask8(uint8_t x) noexcept {
+        return {u64x8_t::broadcast(colors_from_mask8_scalar(x))};
     }
 
     /// Converts a 16-rank new-color mask into per-rank color ids.

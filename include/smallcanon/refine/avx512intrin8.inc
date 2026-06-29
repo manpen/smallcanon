@@ -24,23 +24,12 @@ namespace smallcanon::refine::avx512intrin {
         const uint64_t disabled_colors;
         const uint8_t enabled_eq_mask;
 
-        static uint64_t import_color(const Coloring8& coloring) {
-            return read_le_u64(coloring.colors().data());
-        }
-
-        static void export_color(Coloring8& coloring, uint64_t color, uint64_t labels) {
-            static_assert(std::is_same_v<typename std::decay_t<decltype(coloring)>::scolor_t, uint8_t>);
-            write_le_u64(coloring.colors().data(), color);
-            write_le_u64(coloring.labels().data(), labels);
-        }
-
         static u64x8_t import_graph(const AdjMatrix8& graph) {
             static_assert(std::is_same_v<typename std::decay_t<decltype(graph)>::word_t, uint8_t>);
 
             // this should become a simple load ... but this version should be more portable.
             uint64_t single_graph = read_le_u64(graph.buffer().data());
-            const auto rows = (u64x8_t::broadcast(single_graph) >> u64x8cont<0, 8>()) & 0xff;
-            return rows * 0x0101010101010101;
+            return widen_to_u64(single_graph) * 0x0101010101010101;
         }
 
         SMALLCANON_ALWAYS_INLINE
@@ -67,15 +56,11 @@ namespace smallcanon::refine::avx512intrin {
 
             const u64x8_t masked = vgraph & color_mask;
             const u64x8_t color_counts = u64x8_t(popcnt(u8x64_t(masked)));
-            const auto color_counts32 = pack_low3_from_bytes(color_counts) << 3;
+            const auto color_counts32 = shrink_to_u32(pack_low3_from_bytes(color_counts) << 3);
 
-            const auto with_node_ids = color_counts32 | u64x8cont<0, 1>();
+            const auto colors_at_msb = widen_to_u32(color_uint64 | disabled_colors) << 28;
 
-            const u64x8_t colors_at_msb = ((u64x8_t::broadcast(color_uint64 | disabled_colors) << u64x8cont<60, 52>()) &
-                                           0xf000000000000000) >>
-                                          32;
-
-            return shrink_to_u32(with_node_ids | colors_at_msb);
+            return color_counts32 | colors_at_msb | u32x8cont<0, 1>();
         }
 
 
@@ -91,7 +76,7 @@ namespace smallcanon::refine::avx512intrin {
         }
 
         void refine(Coloring8& external_coloring) const noexcept {
-            auto color_uint64 = import_color(external_coloring);
+            auto color_uint64 = colors_to_native(external_coloring);
 
             // Store the previous value of `same_fingerprint_as_pred`.
             // To force completion of at least one iteration, we choose an impossible value:
@@ -100,7 +85,7 @@ namespace smallcanon::refine::avx512intrin {
 
             // We refine until either (i) the coloring is discrete or (ii) the coloring is converged.
             bool is_discrete = false;
-            u64x8_t node_ids_by_rank;
+            uint64_t node_ids_by_rank;
             while (!is_discrete) {
                 // Each fingerprint uses 64 bits. The MSB 3 bits encode the old color, the lowest 3 bits the node id.
                 // The remaining bits are implementation specific and encode some (permutation invariant) information
@@ -112,49 +97,36 @@ namespace smallcanon::refine::avx512intrin {
                 const auto sorted_fingerprints = simd::sort::sort_details::sort_single_batch<8>(fingerprints);
 
                 // Split fingerprints into node ids and remainder
-                node_ids_by_rank = widen_to_u64(sorted_fingerprints & 0x7);
-                const auto fingerprints_wo_node_ids = sorted_fingerprints & ~0x7;
+                node_ids_by_rank = shrink_to_u8(sorted_fingerprints & 7);
+                const auto fingerprints_wo_node_ids = sorted_fingerprints >> 3;
 
-                uint8_t new_color_mask;
-                {
-                    // We compare each fingerprint to its predecessor (i.e. the element with next lower rank).
-                    // We finally obtain an 8-bit integer (same_fingerprint_as_pred), where a one in the i-th bit
-                    // encodes that a new color starts with the node of rank i.
-                    const auto shifted_fps = xs::swizzle(fingerprints_wo_node_ids, u32x8cont<0, 0, 1>{});
-                    new_color_mask =
-                            static_cast<uint8_t>((fingerprints_wo_node_ids != shifted_fps).mask()) & enabled_eq_mask;
-                    assert((new_color_mask & 1) == 0);
+                // We compare each fingerprint to its predecessor (i.e. the element with next lower rank).
+                // We finally obtain an 8-bit integer (same_fingerprint_as_pred), where a one in the i-th bit
+                // encodes that a new color starts with the node of rank i.
+                const auto shifted_fps = xs::swizzle(fingerprints_wo_node_ids, u32x8cont<0, 0, 1>{});
+                const auto new_color_mask =
+                        static_cast<uint8_t>((fingerprints_wo_node_ids != shifted_fps).mask()) & enabled_eq_mask;
+                assert((new_color_mask & 1) == 0);
 
 
-                    // Check for convergence. Observe that we can only refine but not rearrange colors. Hence, the same
-                    // pattern in same_fingerprint_as_pred implies the same values in node_ids_by_rank.
-                    if (new_color_mask == prev_new_color_mask) {
-                        // computation converged; break
-                        break;
-                    }
-
-                    prev_new_color_mask = new_color_mask;
+                // Check for convergence. Observe that we can only refine but not rearrange colors. Hence, the same
+                // pattern in same_fingerprint_as_pred implies the same values in node_ids_by_rank.
+                if (new_color_mask == prev_new_color_mask) {
+                    // computation converged; break
+                    break;
                 }
+                prev_new_color_mask = new_color_mask;
 
-                // we have 8 copies of prefix sums of u8x8
-                const auto prefixsum = colors_from_mask8(new_color_mask);
-
-                // nice trick to avoid sorting back from fingerprint order back to node id order:
-                // we interpret each prefixsum copy as a uint64_t. In i-th lane now takes care of
-                // the node u of rank i and moves its color to the u-th byte while zeroing out all others.
-                // Then we recombine the 8 uint64_t values by a horizontal sum
-                {
-                    u64x8_t new_colors = (static_cast<u64x8_t>(prefixsum) >> u64x8cont<0, 8>()) & 0xff;
-                    const auto shifted = new_colors << (8 * node_ids_by_rank);
-                    color_uint64 = xs::reduce_add(shifted);
-                }
+                const auto new_colors = colors_from_mask8_scalar(new_color_mask);
+                auto combined = u8x16_t(u64x2_t::broadcast(new_colors | (node_ids_by_rank << 4)));
+                combined = smallcanon::simd::sort::sort_details::sort_single_batch<8>(combined);
+                color_uint64 = xs::get<0>(u64x2_t(combined)) & 0x0f0f0f0f0f0f0f0f;
 
                 is_discrete = (new_color_mask | 1) == enabled_eq_mask;
             }
 
-            const uint64_t labels = xs::reduce_add(node_ids_by_rank << u64x8cont<0, 8>());
-
-            export_color(external_coloring, color_uint64, labels);
+            native_to_colors(external_coloring, color_uint64);
+            native_to_labels(external_coloring, node_ids_by_rank);
         }
     };
 

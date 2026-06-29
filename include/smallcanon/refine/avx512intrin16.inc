@@ -36,22 +36,10 @@ namespace smallcanon::refine::avx512intrin {
         u8x16_t import_color(const coloring_t& external_coloring) const noexcept {
             static_assert(std::is_same_v<coloring_t::storage_t::scolor_t, uint8_t>);
 
-            const auto colors = u8x16_t::load_unaligned(external_coloring.colors().data());
+            const auto colors = colors_to_native(external_coloring);
             const auto active = (u8x16cont<0, 1>().as_batch() < static_cast<uint8_t>(external_graph.num_nodes()));
 
             return xs::select(active, colors, u8x16_t::broadcast(0xff));
-        }
-
-        static void export_color(coloring_t& external_coloring, u8x16_t coloring, u8x16_t labels) noexcept {
-            static_assert(std::is_same_v<coloring_t::storage_t::scolor_t, uint8_t>);
-
-            coloring.store_unaligned(external_coloring.colors().data());
-            labels.store_unaligned(external_coloring.labels().data());
-        }
-
-        static u16x16_t import_graph(const graph_t& external_graph) noexcept {
-            static_assert(std::is_same_v<graph_t::storage_t::word_t, uint16_t>);
-            return u16x16_t::load_unaligned(external_graph.buffer().data());
         }
 
         static u16x32_t compute_prefixsum_u16x16(uint16_t inp) {
@@ -87,20 +75,38 @@ namespace smallcanon::refine::avx512intrin {
                 external_graph(egraph), color_hashes(xs::swizzle(color_table_c().as_batch(), colors) //
                                                      ^ xs::swizzle(degree_table_c().as_batch(), degrees)) {}
 
+            HashFingerprint(const graph_t& egraph, u32x16_t colors) :
+                external_graph(egraph), color_hashes(xs::swizzle(color_table_c().as_batch(), colors)) {}
+
+
             u32x16_t fingerprints(u32x16_t ranks, node_t n) noexcept {
                 xs::store_aligned(scratch_hashes.data(), color_hashes);
-                auto new_colors = hash_fmix32(color_hashes);
 
-                for (node_t node = 0; node < n; node++) {
-                    const uint16_t mask = external_graph.row_upto_capacity(node)[0];
-                    new_colors = xs::select(xs::batch_bool<uint32_t, arch>::from_mask(mask), //
-                                            new_colors + scratch_hashes[node], //
-                                            new_colors);
-                }
+                u32x16_t sum0 = hash_fmix32(color_hashes);
 
-                color_hashes = new_colors;
+                const uint16_t *buffer = external_graph.buffer().data();
+#define STEP(c, u) sum##c = _mm512_mask_add_epi32(sum##c, buffer[u], sum##c, u32x16_t::broadcast(scratch_hashes[u]));
 
-                return (new_colors & 0x0fff'fff0) // new colors
+                STEP(0, 0);
+                STEP(0, 1);
+                STEP(0, 2);
+                STEP(0, 3);
+                STEP(0, 4);
+                STEP(0, 5);
+                STEP(0, 6);
+                STEP(0, 7);
+                STEP(0, 8);
+                STEP(0, 9);
+                STEP(0, 10);
+                STEP(0, 11);
+                STEP(0, 12);
+                STEP(0, 13);
+                STEP(0, 14);
+                STEP(0, 15);
+
+                color_hashes = sum0;
+
+                return (color_hashes & 0x0fff'fff0) // new colors
                        | u32x16cont<0, 1>().as_batch() // ranks
                        | (ranks << 28); // old colors
             }
@@ -109,17 +115,18 @@ namespace smallcanon::refine::avx512intrin {
 
     public:
         explicit AVX512(const graph_t& egraph) :
-            external_graph(egraph), graph(import_graph(egraph)), degrees(widen_to_u32(popcnt(graph))),
+            external_graph(egraph), graph(matrix_to_native(egraph)), degrees(widen_to_u32(popcnt(graph))),
             enabled_eq_mask(static_cast<uint16_t>((2 << external_graph.num_nodes()) - 1)) {}
 
         void refine_starting_at(coloring_t& external_coloring, [[maybe_unused]] node_t start) noexcept {
-            refine_impl(external_coloring);
+            refine_impl<false>(external_coloring);
         }
 
         void refine(coloring_t& external_coloring) noexcept {
-            refine_impl(external_coloring);
+            refine_impl<true>(external_coloring);
         }
 
+        template<bool First>
         void refine_impl(coloring_t& external_coloring) noexcept {
             const auto n = external_graph.num_nodes();
 
@@ -130,7 +137,9 @@ namespace smallcanon::refine::avx512intrin {
 
             u8x16_t labels_in_part_order;
 
-            auto hasher = HashFingerprint(external_graph, degrees, colors_32b);
+            auto hasher = First //
+                                  ? HashFingerprint(external_graph, degrees, colors_32b) //
+                                  : HashFingerprint(external_graph, colors_32b);
 
             for ([[maybe_unused]] node_t round = 0; true; round++) {
                 auto fingerprints = hasher.fingerprints(colors_32b, n);
@@ -165,7 +174,8 @@ namespace smallcanon::refine::avx512intrin {
                 colors_32b = widen_to_u32(colors_8b);
             }
 
-            export_color(external_coloring, colors_8b, labels_in_part_order);
+            native_to_colors(external_coloring, colors_8b);
+            native_to_labels(external_coloring, labels_in_part_order);
         }
     };
 

@@ -4,6 +4,9 @@
 #include <smallcanon/utility.hpp>
 #include <xsimd/xsimd.hpp>
 
+#include "smallcanon/adj_matrix.hpp"
+#include "smallcanon/coloring.hpp"
+
 #define SMALLCANON_AVX512_ALIGNED alignas(64)
 
 namespace smallcanon::simd::avx512defs {
@@ -53,6 +56,14 @@ namespace smallcanon::simd::avx512defs {
         return _mm512_cvtepu32_epi64(d);
     }
 
+    SMALLCANON_ALWAYS_INLINE static u64x8_t widen_to_u64(uint64_t values) noexcept {
+        return _mm512_cvtepu8_epi64(_mm_cvtsi64_si128(values));
+    }
+
+    SMALLCANON_ALWAYS_INLINE static u32x8_t widen_to_u32(const uint64_t values) noexcept {
+        return {_mm256_cvtepu8_epi32(_mm_cvtsi64_si128(values))};
+    }
+
     SMALLCANON_ALWAYS_INLINE static u32x16_t widen_to_u32(const u8x16_t values) noexcept {
         return {_mm512_cvtepu8_epi32(values)};
     }
@@ -61,8 +72,16 @@ namespace smallcanon::simd::avx512defs {
         return {_mm512_cvtepu16_epi32(values)};
     }
 
+    SMALLCANON_ALWAYS_INLINE static u8x16_t shrink_to_u8(const u64x8_t values) noexcept {
+        return {_mm512_cvtepi64_epi8(values)};
+    }
+
     SMALLCANON_ALWAYS_INLINE static u8x16_t shrink_to_u8(const u32x16_t values) noexcept {
         return {_mm512_cvtepi32_epi8(values)};
+    }
+
+    SMALLCANON_ALWAYS_INLINE static uint64_t shrink_to_u8(const u32x8_t values) noexcept {
+        return _mm_cvtsi128_si64(_mm256_cvtepi32_epi8(values));
     }
 
     SMALLCANON_ALWAYS_INLINE static u8x16_t shrink_to_u8(const u16x16_t values) noexcept {
@@ -78,6 +97,55 @@ namespace smallcanon::simd::avx512defs {
 
         return h;
     }
+
+    SMALLCANON_ALWAYS_INLINE uint64_t matrix_to_native(const AdjMatrix8& g) noexcept {
+        return read_le_u64(g.buffer().data());
+    }
+
+    SMALLCANON_ALWAYS_INLINE u16x16_t matrix_to_native(const AdjMatrix16& g) noexcept {
+        return u16x16_t::load_unaligned(g.buffer().data());
+    }
+
+    SMALLCANON_ALWAYS_INLINE void native_to_matrix(AdjMatrix8& g, uint64_t native) noexcept {
+        write_le_u64(g.buffer().data(), native);
+    }
+
+    SMALLCANON_ALWAYS_INLINE void native_to_matrix(AdjMatrix16& g, u16x16_t native) noexcept {
+        native.store_unaligned(g.buffer().data());
+    }
+
+    SMALLCANON_ALWAYS_INLINE uint64_t colors_to_native(const Coloring8& c) noexcept {
+        return read_le_u64(c.colors().data());
+    }
+
+    SMALLCANON_ALWAYS_INLINE uint64_t labels_to_native(const Coloring8& c) noexcept {
+        return read_le_u64(c.labels().data());
+    }
+
+    SMALLCANON_ALWAYS_INLINE u8x16_t colors_to_native(const Coloring16& c) noexcept {
+        return u8x16_t::load_unaligned(c.colors().data());
+    }
+
+    SMALLCANON_ALWAYS_INLINE u8x16_t labels_to_native(const Coloring16& c) noexcept {
+        return u8x16_t::load_unaligned(c.labels().data());
+    }
+
+    SMALLCANON_ALWAYS_INLINE void native_to_colors(Coloring8& c, uint64_t native) noexcept {
+        write_le_u64(c.colors().data(), native);
+    }
+
+    SMALLCANON_ALWAYS_INLINE void native_to_labels(Coloring8& c, uint64_t native) noexcept {
+        write_le_u64(c.labels().data(), native);
+    }
+
+    SMALLCANON_ALWAYS_INLINE void native_to_colors(Coloring16& c, u8x16_t native) noexcept {
+        native.store_unaligned(c.colors().data());
+    }
+
+    SMALLCANON_ALWAYS_INLINE void native_to_labels(Coloring16& c, u8x16_t native) noexcept {
+        native.store_unaligned(c.labels().data());
+    }
+
 #else
 #define SMALLCANON_WITH_AVX512 0
 #endif
