@@ -16,6 +16,12 @@ target_compile_definitions(smallcanon_benchmark_canon
         SMALLCANON_PROJECT_ROOT="${PROJECT_SOURCE_DIR}"
 )
 
+add_executable(smallcanon_benchmark_transpose transpose.cpp)
+target_link_libraries(smallcanon_benchmark_transpose
+        PRIVATE
+        smallcanon::smallcanon
+        benchmark::benchmark_main
+)
 
 if (NAUTY)
     add_executable(smallcanon_benchmark_nauty_refine nauty_refine.cpp)

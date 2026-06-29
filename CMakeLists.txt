@@ -34,8 +34,17 @@ FetchContent_MakeAvailable(xsimd)
 add_library(smallcanon INTERFACE
         include/smallcanon/adj_matrix.hpp
         include/smallcanon/bitspan.hpp
+        include/smallcanon/coloring.hpp
+        include/smallcanon/compare_leaves.hpp
         include/smallcanon/graph.hpp
+        include/smallcanon/invariant.hpp
+        include/smallcanon/ir.hpp
+        include/smallcanon/orbits.hpp
         include/smallcanon/parser.hpp
+        include/smallcanon/permutation.hpp
+        include/smallcanon/selector.hpp
+        include/smallcanon/transpose.hpp
+        include/smallcanon/utility.hpp
 )
 add_library(smallcanon::smallcanon ALIAS smallcanon)
 

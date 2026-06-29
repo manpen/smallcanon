@@ -9,6 +9,7 @@ SET(SMALL_CANON_TESTS
         parser
         refine
         simd_sort
+        transpose
 )
 
 function(add_smallcanon_test name)

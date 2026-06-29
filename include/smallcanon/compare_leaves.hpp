@@ -6,6 +6,7 @@
 #include "smallcanon/adj_matrix.hpp"
 #include "smallcanon/coloring.hpp"
 #include "smallcanon/orbits.hpp"
+#include "smallcanon/transpose.hpp"
 
 namespace smallcanon {
     namespace compare {
@@ -15,6 +16,25 @@ namespace smallcanon {
         template<class SM, class SC>
         std::strong_ordering compare(const AdjMatrix<SM>& graph, const Coloring<SC>& coloring1,
                                      const Coloring<SC>& coloring2) {
+
+            if constexpr (std::is_same_v<SM, details::FixedStorage8>) {
+                auto g0 = reorder_graph(graph, coloring1);
+                auto g1 = reorder_graph(graph, coloring2);
+
+                auto i0 = read_le_u64(g0.buffer().data());
+                auto i1 = read_le_u64(g1.buffer().data());
+
+                if (i0 == i1) {
+                    return std::strong_ordering::equal;
+                } else if (i0 > i1) {
+                    return std::strong_ordering::greater;
+                } else {
+                    return std::strong_ordering::less;
+                }
+            }
+
+
+
             const node_t n = graph.num_nodes();
 
             // Lexicographically compare the relabeled adjacency matrices
