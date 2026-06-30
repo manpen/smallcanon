@@ -37,8 +37,8 @@ namespace smallcanon::refine::avx512intrin {
             static_assert(std::is_same_v<coloring_t::storage_t::scolor_t, uint8_t>);
 
             const auto colors = colors_to_native(external_coloring);
-            const auto active = (u8x16cont<0, 1>().as_batch() < static_cast<uint8_t>(external_graph.num_nodes()));
 
+            const auto active = b8x16_t::from_mask((1 << external_graph.num_nodes()) - 1);
             return xs::select(active, colors, u8x16_t::broadcast(0xff));
         }
 
@@ -82,29 +82,28 @@ namespace smallcanon::refine::avx512intrin {
             u32x16_t fingerprints(u32x16_t ranks, node_t n) noexcept {
                 xs::store_aligned(scratch_hashes.data(), color_hashes);
 
-                u32x16_t sum0 = hash_fmix32(color_hashes);
+                color_hashes = hash_fmix32(color_hashes);
 
                 const uint16_t *buffer = external_graph.buffer().data();
-#define STEP(c, u) sum##c = _mm512_mask_add_epi32(sum##c, buffer[u], sum##c, u32x16_t::broadcast(scratch_hashes[u]));
+#define STEP(u)                                                                                                        \
+    color_hashes = _mm512_mask_add_epi32(color_hashes, buffer[u], color_hashes, u32x16_t::broadcast(scratch_hashes[u]));
 
-                STEP(0, 0);
-                STEP(0, 1);
-                STEP(0, 2);
-                STEP(0, 3);
-                STEP(0, 4);
-                STEP(0, 5);
-                STEP(0, 6);
-                STEP(0, 7);
-                STEP(0, 8);
-                STEP(0, 9);
-                STEP(0, 10);
-                STEP(0, 11);
-                STEP(0, 12);
-                STEP(0, 13);
-                STEP(0, 14);
-                STEP(0, 15);
-
-                color_hashes = sum0;
+                STEP(0);
+                STEP(1);
+                STEP(2);
+                STEP(3);
+                STEP(4);
+                STEP(5);
+                STEP(6);
+                STEP(7);
+                STEP(8);
+                STEP(9);
+                STEP(10);
+                STEP(11);
+                STEP(12);
+                STEP(13);
+                STEP(14);
+                STEP(15);
 
                 return (color_hashes & 0x0fff'fff0) // new colors
                        | u32x16cont<0, 1>().as_batch() // ranks

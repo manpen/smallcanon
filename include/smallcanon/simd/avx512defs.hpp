@@ -27,6 +27,7 @@ namespace smallcanon::simd::avx512defs {
 
 #define SMALLCANON_NEW_BATCH(WIDTH, NUM, AWIDTH, ARCH)                                                                 \
     using u##WIDTH##x##NUM##_t = xs::batch<uint##WIDTH##_t, ARCH>;                                                     \
+    using b##WIDTH##x##NUM##_t = xs::batch_bool<uint##WIDTH##_t, ARCH>;                                                \
     static_assert(u##WIDTH##x##NUM##_t::size == NUM);                                                                  \
     template<uint##WIDTH##_t... Vs>                                                                                    \
     using u##WIDTH##x##NUM##const = xs::batch_constant<uint##WIDTH##_t, ARCH, Vs...>;                                  \
