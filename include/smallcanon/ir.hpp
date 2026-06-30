@@ -17,18 +17,20 @@
 namespace smallcanon {
     namespace solver {
 
-        template<typename SC>
+        template<typename SM, typename SC>
         struct Leaf {
             bool has_value = false; // whether there's actually a leaf stored in this struct
             Coloring<SC> leaf; // discrete coloring at leaf
+            AdjMatrix<SM> graph; // graph in node label order
             std::vector<node_t> path; // individualized vertices on the root-to-leaf path
 
             Orbits orbits; // orbit partition related with this leaf
             group_order_t group_size = 1; // group size related with this leaf
 
-            explicit Leaf(node_t n) : leaf(n), orbits(n) {}
+            explicit Leaf(node_t n) : leaf(n), graph(n), orbits(n) {}
 
-            void replace(const Coloring<SC>& new_leaf) {
+            void replace(const AdjMatrix<SM>& new_graph, const Coloring<SC>& new_leaf) {
+                graph = new_graph.copy();
                 leaf = new_leaf.copy();
                 group_size = 1;
                 orbits.clear();
@@ -126,7 +128,7 @@ namespace smallcanon {
         public:
             using graph_t = Graph;
             using coloring_t = MatchedColoring<graph_t>::coloring_t;
-            using leaf_t = Leaf<typename coloring_t::storage_t>;
+            using leaf_t = Leaf<typename graph_t::storage_t, typename coloring_t::storage_t>;
             using stack_t = SearchStack<typename coloring_t::storage_t>;
             using refine_t = Refine;
 
@@ -188,14 +190,16 @@ namespace smallcanon {
                                 // TODO invalidate all comp leafs?
                                 // our best leaf orbits have become invalid
                                 DEBUG_STREAM << "c [compare] this is the best-leaf now" << std::endl;
-                                best_leaf.replace(coloring);
+                                const auto graph_reordered = reorder_graph(graph, coloring);
+                                best_leaf.replace(graph_reordered, coloring);
                                 best_leaf_lca = stack.size();
                                 stack.copy_path_into(best_leaf.path);
                             } else {
                                 // (1) TODO compare invariants
                                 // (2) when invariants equal, actually compare leafs
 
-                                const auto compare = compare::compare(graph, best_leaf.leaf, coloring);
+                                const auto graph_reordered = reorder_graph(graph, coloring);
+                                const auto compare = compare::compare_leaves(best_leaf.graph, graph_reordered);
 
                                 if (compare == std::strong_ordering::equal) {
                                     // leaf agrees with best-leaf? jump to best-leaf LCA
@@ -208,7 +212,7 @@ namespace smallcanon {
                                 } else if (compare == std::strong_ordering::greater) {
                                     DEBUG_STREAM << "c [compare] this is the best-leaf is now" << std::endl;
                                     ++stats.best_leaf_update;
-                                    best_leaf.replace(coloring);
+                                    best_leaf.replace(graph_reordered, coloring);
                                     best_leaf_lca = stack.size();
                                     stack.copy_path_into(best_leaf.path);
                                 }

@@ -15,6 +15,9 @@
 
 namespace smallcanon {
     /// Coloring maps nodes to colors backed by a configurable storage type.
+    /// Labels enumerate nodes in nondecreasing color order and colors encode color-class start positions:
+    /// the first label entry has color 0, and each following entry either has the same color as its predecessor
+    /// or has color exactly equal to its label position.
     /// Only colors in the range [0, num_nodes) are accepted by the public API because storage may use a type smaller
     /// than color_t internally.
     template<typename Storage>
@@ -154,21 +157,20 @@ namespace smallcanon {
                    std::ranges::equal(colors().first(num_nodes()), rhs.colors().first(rhs.num_nodes()));
         }
 
-        /// Moves node u to its own new color class at the end of the label order.
+        /// Moves node u to its own new color class at the end of its current color class.
         constexpr void individualize(const node_t u) noexcept {
             const node_t n = num_nodes();
             assert(u < n);
 
-            const color_t new_color = color_at_label(n - 1) + 1;
-            assert(new_color < n);
+            const auto old_color = get_color(u);
+            node_t end_of_color = n - 1;
+            for (; color_at_label(end_of_color) != old_color; --end_of_color) {}
 
-            auto labels = labels_.buffer();
-            for (auto pos = label_position(u); pos + 1 < n; ++pos) {
-                labels[pos] = labels[pos + 1];
-            }
+            node_t own_pos = end_of_color;
+            for (; label_at(own_pos) != u; --own_pos) {}
 
-            labels[n - 1] = static_cast<scolor_t>(u);
-            colors_.buffer()[u] = static_cast<scolor_t>(new_color);
+            std::swap(labels_.buffer()[own_pos], labels_.buffer()[end_of_color]);
+            colors_.buffer()[u] = static_cast<scolor_t>(end_of_color);
         }
 
         /// Returns false if a violation of the coloring assumptions was detected
@@ -189,15 +191,14 @@ namespace smallcanon {
             if (sum != static_cast<uint64_t>(n) * (n - 1) / 2)
                 return false;
 
-            for (node_t i = 1; i < n; ++i) {
-                const auto u = label_at(i - 1);
-                const auto v = label_at(i);
+            color_t prev_color = 0;
+            for (node_t i = 0; i < n; ++i) {
+                const auto col = color_at_label(i);
 
-                if (get_color(u) == get_color(v))
-                    continue;
-
-                if (get_color(u) + 1 != get_color(v))
+                if (col != prev_color && col != i)
                     return false;
+
+                prev_color = col;
             }
 
             return true;

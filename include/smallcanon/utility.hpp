@@ -45,3 +45,14 @@ constexpr SMALLCANON_ALWAYS_INLINE void write_le_u64(unsigned char *p, uint64_t 
     p[6] = static_cast<unsigned char>(value >> 48);
     p[7] = static_cast<unsigned char>(value >> 56);
 }
+
+// taken from https://github.com/aappleby/smhasher/blob/master/src/MurmurHash3.cpp
+SMALLCANON_ALWAYS_INLINE uint32_t hash_fmix32(uint32_t h) {
+    h ^= h >> 16;
+    h *= 0x85ebca6b;
+    h ^= h >> 13;
+    h *= 0xc2b2ae35;
+    h ^= h >> 16;
+
+    return h;
+}

@@ -26,7 +26,7 @@ namespace {
         }
     };
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
     struct RefinementAVX512Intrinsics {
         [[maybe_unused]]
         static constexpr std::string_view name = "avx512intrin";
@@ -66,8 +66,9 @@ namespace {
     };
 
     using RefinementTestTypes = testing::Types<
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
             RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix8>,
+            RefinementTestConfig<RefinementAVX512Intrinsics, smallcanon::AdjMatrix16>,
 #endif
             RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix8>,
             RefinementTestConfig<RefinementNaiveScale, smallcanon::AdjMatrix16>,
@@ -189,8 +190,8 @@ TYPED_TEST(RefinementTests, InitialColorsAreRespectedCircle) {
     EXPECT_NE(coloring.get_color(1), color_of_other);
     EXPECT_EQ(coloring.get_color(2), color_of_other);
 
-    EXPECT_TRUE(coloring.get_color(0) < 2);
-    EXPECT_TRUE(coloring.get_color(1) < 2);
+    EXPECT_TRUE(coloring.get_color(0) < 3);
+    EXPECT_TRUE(coloring.get_color(1) < 3);
 }
 
 TYPED_TEST(RefinementTests, DefaultNodeCount) {
@@ -235,7 +236,6 @@ TYPED_TEST(RefinementTests, MatchesNaivePartitionOnCuratedDataset) {
                             }
                         }
 
-
                         TestFixture::refinement_t::refine(graph, coloring);
 
                         {
@@ -277,7 +277,17 @@ TYPED_TEST(RefinementTests, InvarianceNodePermutation) {
         std::visit(
                 [&](auto&& graph) {
                     if constexpr (std::is_same_v<std::decay_t<decltype(graph)>, graph_t>) {
+                        const auto n = graph.num_nodes();
                         typename TestFixture::coloring_t coloring(graph.num_nodes());
+
+                        // partially precolor half of all instances
+                        auto num_colored_nodes = std::uniform_int_distribution<smallcanon::node_t>{0, n / 2}(rng);
+                        for (auto i = num_colored_nodes; i; --i) {
+                            auto node = std::uniform_int_distribution<smallcanon::node_t>{0, n - 1}(rng);
+                            auto color = std::uniform_int_distribution<smallcanon::node_t>{0, n - 1}(rng);
+                            coloring.set_color(node, color);
+                        }
+
                         auto [mapped_graph, mapped_coloring, mapping] = permute_graph(rng, graph, coloring);
 
                         TestFixture::refinement_t::refine(graph, coloring);

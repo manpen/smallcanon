@@ -24,8 +24,8 @@ jobs:
         arch:
           - name: native
             flags: -march=native
-          - name: avx2 only
-            flags: -mavx2 -mlzcnt -mpopcnt -mbmi -mbmi2 -mno-avx512f -mno-avx512bw -mno-avx512dq -mno-avx512vl -mno-avx512cd
+#          - name: avx2 only
+#            flags: -mavx2 -mlzcnt -mpopcnt -mbmi -mbmi2 -mno-avx512f -mno-avx512bw -mno-avx512dq -mno-avx512vl -mno-avx512cd
 
     steps:
       - name: Check out repository

@@ -4,6 +4,7 @@
 #include <array>
 #include <bit>
 #include <cassert>
+#include <compare>
 #include <concepts>
 #include <initializer_list>
 #include <memory>
@@ -357,5 +358,4 @@ namespace smallcanon {
     auto make_adj_matrix128(node_t n = 128, R&& edges = {}) {
         return details::make_adj_matrix<details::FixedStorage128>(n, std::forward<R>(edges));
     }
-
 } // namespace smallcanon

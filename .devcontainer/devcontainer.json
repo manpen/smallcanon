@@ -5,5 +5,12 @@
   },
   "remoteUser": "developer",
   "containerUser": "developer",
-  "updateRemoteUserUID": true
+  "updateRemoteUserUID": true,
+  "securityOpt": [
+    "seccomp=unconfined",
+    "apparmor=unconfined"
+  ],
+  "capAdd": [
+    "SYS_ADMIN"
+  ]
 }

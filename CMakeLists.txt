@@ -26,7 +26,8 @@ set(XSIMD_SKIP_INSTALL ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
         xsimd
         GIT_REPOSITORY https://github.com/xtensor-stack/xsimd.git
-        GIT_TAG 14.2.0
+        #GIT_TAG 14.2.0
+        GIT_BRANCH master
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(xsimd)
@@ -34,8 +35,17 @@ FetchContent_MakeAvailable(xsimd)
 add_library(smallcanon INTERFACE
         include/smallcanon/adj_matrix.hpp
         include/smallcanon/bitspan.hpp
+        include/smallcanon/coloring.hpp
+        include/smallcanon/compare_leaves.hpp
         include/smallcanon/graph.hpp
+        include/smallcanon/invariant.hpp
+        include/smallcanon/ir.hpp
+        include/smallcanon/orbits.hpp
         include/smallcanon/parser.hpp
+        include/smallcanon/permutation.hpp
+        include/smallcanon/selector.hpp
+        include/smallcanon/reorder.hpp
+        include/smallcanon/utility.hpp
 )
 add_library(smallcanon::smallcanon ALIAS smallcanon)
 
@@ -122,6 +132,7 @@ endif ()
 if (BENCHMARKS)
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
             googlebenchmark
             GIT_REPOSITORY https://github.com/google/benchmark.git
@@ -129,6 +140,13 @@ if (BENCHMARKS)
             GIT_SHALLOW TRUE
     )
     FetchContent_MakeAvailable(googlebenchmark)
+
+    target_compile_options(benchmark PRIVATE
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-c2y-extensions>
+    )
+    target_compile_options(benchmark_main PRIVATE
+            $<$<CXX_COMPILER_ID:Clang>:-Wno-c2y-extensions>
+    )
 
     add_subdirectory(benchmarks)
 endif ()

@@ -80,7 +80,7 @@ void bm_canon(benchmark::State& state) {
     }
 }
 
-#if XSIMD_WITH_AVX512F
+#if SMALLCANON_WITH_AVX512
 template<typename G>
 void bm_canon_avx512(benchmark::State& state) {
     static auto instances = load_smallcanon_instances<G>();
@@ -111,11 +111,13 @@ void bm_canon_avx512(benchmark::State& state) {
 }
 
 BENCHMARK_TEMPLATE(bm_canon_avx512, smallcanon::AdjMatrix8);
+BENCHMARK_TEMPLATE(bm_canon_avx512, smallcanon::AdjMatrix16);
 #endif
 
-
-BENCHMARK_TEMPLATE(bm_canon, smallcanon::AdjMatrix8);
 #if SMALLCANON_WITH_NAUTY
 BENCHMARK_TEMPLATE(bm_canon_nauty, smallcanon::AdjMatrix8);
+BENCHMARK_TEMPLATE(bm_canon_nauty, smallcanon::AdjMatrix16);
 #endif
+
+BENCHMARK_TEMPLATE(bm_canon, smallcanon::AdjMatrix8);
 BENCHMARK_TEMPLATE(bm_canon, smallcanon::AdjMatrix16);

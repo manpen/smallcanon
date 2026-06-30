@@ -5,10 +5,14 @@ SET(SMALL_CANON_TESTS
         adj_matrix_storage
         bitspan
         canon
+        compare_leaves
+        colors_from_mask
         coloring
         parser
+        prefix
         refine
         simd_sort
+        reorder
 )
 
 function(add_smallcanon_test name)
