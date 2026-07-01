@@ -77,6 +77,10 @@ namespace smallcanon::simd::avx512defs {
         return {_mm256_cvtepu8_epi16(values)};
     }
 
+    SMALLCANON_ALWAYS_INLINE static u16x16_t shrink_to_u16(const u32x16_t values) noexcept {
+        return {_mm512_cvtepi32_epi16(values)};
+    }
+
     SMALLCANON_ALWAYS_INLINE static u8x16_t shrink_to_u8(const u64x8_t values) noexcept {
         return {_mm512_cvtepi64_epi8(values)};
     }
@@ -101,6 +105,15 @@ namespace smallcanon::simd::avx512defs {
         h ^= h >> 16;
 
         return h;
+    }
+
+    SMALLCANON_ALWAYS_INLINE u16x16_t hash16(u16x16_t x) noexcept {
+        x ^= x >> 7;
+        x *= 0x9e37u;
+        x ^= x >> 5;
+        x *= 0x85ebu;
+        x ^= x >> 8;
+        return x;
     }
 
     SMALLCANON_ALWAYS_INLINE uint64_t matrix_to_native(const AdjMatrix8& g) noexcept {

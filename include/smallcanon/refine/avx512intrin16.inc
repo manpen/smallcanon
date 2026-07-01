@@ -85,25 +85,26 @@ namespace smallcanon::refine::avx512intrin {
                 color_hashes = hash_fmix32(color_hashes);
 
                 const uint16_t *buffer = external_graph.buffer().data();
-#define STEP(u)                                                                                                        \
+#define STEP32(u)                                                                                                      \
     color_hashes = _mm512_mask_add_epi32(color_hashes, buffer[u], color_hashes, u32x16_t::broadcast(scratch_hashes[u]));
 
-                STEP(0);
-                STEP(1);
-                STEP(2);
-                STEP(3);
-                STEP(4);
-                STEP(5);
-                STEP(6);
-                STEP(7);
-                STEP(8);
-                STEP(9);
-                STEP(10);
-                STEP(11);
-                STEP(12);
-                STEP(13);
-                STEP(14);
-                STEP(15);
+                STEP32(0);
+                STEP32(1);
+                STEP32(2);
+                STEP32(3);
+                STEP32(4);
+                STEP32(5);
+                STEP32(6);
+                STEP32(7);
+                STEP32(8);
+                STEP32(9);
+                STEP32(10);
+                STEP32(11);
+                STEP32(12);
+                STEP32(13);
+                STEP32(14);
+                STEP32(15);
+#undef STEP32
 
                 return (color_hashes & 0x0fff'fff0) // new colors
                        | u32x16cont<0, 1>().as_batch() // ranks
@@ -132,20 +133,17 @@ namespace smallcanon::refine::avx512intrin {
             uint16_t prev_neq_mask = 1; // impossible value
 
             u8x16_t colors_8b = import_color(external_coloring);
-            u32x16_t colors_32b = widen_to_u32(colors_8b);
+            auto colors_wide = widen_to_u16(colors_8b);
 
             u8x16_t labels_in_part_order;
 
-            auto hasher = First //
-                                  ? HashFingerprint(external_graph, degrees, colors_32b) //
-                                  : HashFingerprint(external_graph, colors_32b);
-
+            auto hasher = HashFingerprint16(external_graph, colors_wide);
             for ([[maybe_unused]] node_t round = 0; true; round++) {
-                auto fingerprints = hasher.fingerprints(colors_32b, n);
-                fingerprints = simd::sort::sort_details::sort_single_batch<16, uint32_t, true>(fingerprints);
+                auto fingerprints = hasher.fingerprints(colors_wide, n);
+                fingerprints = simd::sort::sort_details::sort_single_batch<16, uint16_t, true>(fingerprints);
 
                 const auto fps = (fingerprints >> 4);
-                const auto fps_shifted = xs::swizzle(fps, u32x16cont<0, 0, 1>{});
+                const auto fps_shifted = xs::swizzle(fps, u16x16cont<0, 0, 1>{});
 
                 const auto neq_mask = static_cast<uint16_t>((fps != fps_shifted).mask() & enabled_eq_mask);
                 assert((neq_mask & 1) == 0);
@@ -170,7 +168,7 @@ namespace smallcanon::refine::avx512intrin {
                     break;
                 }
 
-                colors_32b = widen_to_u32(colors_8b);
+                colors_wide = widen_to_u16(colors_8b);
             }
 
             native_to_colors(external_coloring, colors_8b);
